@@ -1,0 +1,20 @@
+/*
+ * 앱 진입점. React 앱을 #root 에 마운트한다.
+ */
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./styles/tokens.css";
+import "./styles/app.css";
+
+const rootEl = document.getElementById("root");
+// 방어 코드: index.html 이 바뀌어 #root 가 없을 때 원인을 명확히 알려준다.
+if (!rootEl) {
+  throw new Error("#root 요소를 찾을 수 없습니다. index.html 을 확인하세요.");
+}
+
+createRoot(rootEl).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);

@@ -1,0 +1,42 @@
+/*
+ * 디자인 토큰 (색상/여백 등 공통 변수)
+ * - 참고용 assets/오늘의_계획표.html 의 색 팔레트를 그대로 계승했다.
+ * - 색을 한 곳에서 관리하면 나중에 다크모드/테마 추가가 쉬워진다.
+ */
+:root {
+  --bg: #f7f6f3;
+  --card: #ffffff;
+  --border: #e6e4de;
+  --text: #1e1e1c;
+  --text-secondary: #78766f;
+  --text-muted: #a5a39b;
+  --accent: #0c447c;
+  --accent-bg: #e6f1fb;
+
+  /* 시간 블록에 쓰는 색상 팔레트 (fill=배경, text=글자색) */
+  --gray-fill: #f1efe8;    --gray-text: #2c2c2a;
+  --purple-fill: #eeedfe;  --purple-text: #26215c;
+  --teal-fill: #e1f5ee;    --teal-text: #04342c;
+  --coral-fill: #faece7;   --coral-text: #4a1b0c;
+  --pink-fill: #fbeaf0;    --pink-text: #4b1528;
+  --neutral-fill: #f5f5f3; --neutral-text: #5f5e5a;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Malgun Gothic", "Segoe UI", sans-serif;
+  color: var(--text);
+  padding: 24px 16px 60px;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}

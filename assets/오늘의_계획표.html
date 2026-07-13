@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>오늘의 계획표</title>
+<style>
+  :root{
+    --bg:#f7f6f3;
+    --card:#ffffff;
+    --border:#e6e4de;
+    --text:#1e1e1c;
+    --text-secondary:#78766f;
+    --text-muted:#a5a39b;
+    --accent:#0c447c;
+    --accent-bg:#e6f1fb;
+
+    --gray-fill:#f1efe8;   --gray-text:#2c2c2a;
+    --purple-fill:#eeedfe; --purple-text:#26215c;
+    --teal-fill:#e1f5ee;   --teal-text:#04342c;
+    --coral-fill:#faece7;  --coral-text:#4a1b0c;
+    --pink-fill:#fbeaf0;   --pink-text:#4b1528;
+    --neutral-fill:#f5f5f3;--neutral-text:#5f5e5a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+    color:var(--text);
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:560px; margin:0 auto;}
+
+  .top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:16px;
+  }
+  .top h1{font-size:15px; font-weight:600; margin:0; color:var(--text-secondary);}
+  .top .clock{font-size:13px; color:var(--text-muted); font-variant-numeric: tabular-nums;}
+
+  .tabs{
+    display:flex; gap:6px; margin-bottom:18px;
+    overflow-x:auto; padding-bottom:2px;
+  }
+  .tab{
+    flex:1; text-align:center;
+    padding:8px 0; border-radius:10px;
+    font-size:13px; font-weight:600;
+    border:1px solid var(--border);
+    background:var(--card);
+    color:var(--text-secondary);
+    cursor:pointer; user-select:none;
+    white-space:nowrap;
+  }
+  .tab.active{
+    background:var(--accent-bg);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .tab .dot{
+    display:inline-block; width:5px; height:5px; border-radius:50%;
+    background:var(--accent); margin-left:4px; vertical-align:middle;
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:22px 20px;
+  }
+  .card-head{display:flex; align-items:baseline; gap:10px; margin-bottom:14px;}
+  .card-head .day{font-size:22px; font-weight:700;}
+  .card-head .tag{font-size:13px; color:var(--text-secondary);}
+  .divider{height:1px; background:var(--border); margin-bottom:14px;}
+
+  .row{
+    display:flex; align-items:center; gap:10px;
+    padding:6px 0;
+    border-radius:10px;
+    position:relative;
+  }
+  .row.now{
+    background:rgba(12,68,124,0.045);
+    margin:0 -10px;
+    padding:6px 10px;
+  }
+  .row.now::before{
+    content:"";
+    position:absolute; left:-10px; top:8px; bottom:8px;
+    width:3px; border-radius:3px;
+    background:var(--accent);
+  }
+  .time{
+    min-width:104px; flex-shrink:0;
+    font-size:13px; color:var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .pill{
+    flex:1; padding:9px 14px; border-radius:9px;
+    font-size:14px; font-weight:600;
+  }
+  .pill.neutral{font-weight:400; color:var(--neutral-text); background:var(--neutral-fill);}
+  .pill.gray{background:var(--gray-fill); color:var(--gray-text);}
+  .pill.purple{background:var(--purple-fill); color:var(--purple-text);}
+  .pill.teal{background:var(--teal-fill); color:var(--teal-text);}
+  .pill.coral{background:var(--coral-fill); color:var(--coral-text);}
+  .pill.pink{background:var(--pink-fill); color:var(--pink-text);}
+
+  .now-badge{
+    display:inline-block; margin-left:8px;
+    font-size:10px; font-weight:700; color:var(--accent);
+    background:var(--accent-bg); padding:2px 6px; border-radius:6px;
+    vertical-align:middle;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>방학 주간 계획표</h1>
+    <div class="clock" id="clock"></div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="day" id="dayName"></span>
+      <span class="tag" id="dayTag"></span>
+    </div>
+    <div class="divider"></div>
+    <div id="rows"></div>
+  </div>
+</div>
+
+<script>
+const DAYS = [
+  { name:"월요일", tag:"근로일", blocks:[
+    ["07:30","16:00","07:30–16:00","국가근로","gray"],
+    ["16:00","18:30","16:00–18:30","Argos 개발","purple"],
+    ["18:30","19:00","18:30–19:00","휴식","neutral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","21:30","20:00–21:30","논문준비","teal"],
+    ["21:30","22:30","21:30–22:30","유튜브 촬영","coral"],
+    ["22:30","23:00","22:30–23:00","휴식","neutral"],
+    ["23:00","23:30","23:00–23:30","취침준비","neutral"],
+  ]},
+  { name:"화요일", tag:"근로일", blocks:[
+    ["07:30","16:00","07:30–16:00","국가근로","gray"],
+    ["16:00","18:30","16:00–18:30","Argos 개발","purple"],
+    ["18:30","19:00","18:30–19:00","휴식","neutral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","21:30","20:00–21:30","논문준비","teal"],
+    ["21:30","22:30","21:30–22:30","유튜브 편집","coral"],
+    ["22:30","23:00","22:30–23:00","휴식","neutral"],
+    ["23:00","23:30","23:00–23:30","취침준비","neutral"],
+  ]},
+  { name:"수요일", tag:"근로일", blocks:[
+    ["07:30","16:00","07:30–16:00","국가근로","gray"],
+    ["16:00","18:30","16:00–18:30","Argos 개발","purple"],
+    ["18:30","19:00","18:30–19:00","휴식","neutral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","21:30","20:00–21:30","유튜브 촬영","coral"],
+    ["21:30","22:30","21:30–22:30","논문준비","teal"],
+    ["22:30","23:00","22:30–23:00","휴식 · 정리","neutral"],
+    ["23:00","23:30","23:00–23:30","취침준비","neutral"],
+  ]},
+  { name:"목요일", tag:"근로일", blocks:[
+    ["07:30","16:00","07:30–16:00","국가근로","gray"],
+    ["16:00","18:30","16:00–18:30","Argos 개발","purple"],
+    ["18:30","19:00","18:30–19:00","휴식","neutral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","21:30","20:00–21:30","논문준비","teal"],
+    ["21:30","23:00","21:30–23:00","유튜브 편집","coral"],
+    ["23:00","23:30","23:00–23:30","취침준비","neutral"],
+  ]},
+  { name:"금요일", tag:"비근로일 · 생방송", blocks:[
+    ["08:30","09:30","08:30–09:30","기상 · 아침식사","neutral"],
+    ["09:30","12:00","09:30–12:00","Argos 개발","purple"],
+    ["12:00","13:00","12:00–13:00","점심","neutral"],
+    ["13:00","15:00","13:00–15:00","논문준비","teal"],
+    ["15:00","15:30","15:00–15:30","휴식","neutral"],
+    ["15:30","17:30","15:30–17:30","생방송","pink"],
+    ["17:30","19:00","17:30–19:00","유튜브 편집","coral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","21:30","20:00–21:30","휴식","neutral"],
+    ["21:30","22:30","21:30–22:30","Argos 개발 보충","purple"],
+    ["22:30","24:30","22:30–00:30","자유시간 · 취침준비","neutral"],
+  ]},
+  { name:"토요일", tag:"비근로일 · 생방송", blocks:[
+    ["09:00","10:00","09:00–10:00","기상 · 아침식사","neutral"],
+    ["10:00","12:30","10:00–12:30","Argos 개발","purple"],
+    ["12:30","13:30","12:30–13:30","점심","neutral"],
+    ["13:30","15:30","13:30–15:30","논문준비","teal"],
+    ["15:30","16:00","15:30–16:00","휴식","neutral"],
+    ["16:00","18:30","16:00–18:30","유튜브 편집","coral"],
+    ["18:30","19:00","18:30–19:00","방송준비","neutral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","22:00","20:00–22:00","생방송","pink"],
+    ["22:00","23:00","22:00–23:00","방송정리 · 소통","neutral"],
+    ["23:00","24:00","23:00–00:00","휴식 · 취침준비","neutral"],
+  ]},
+  { name:"일요일", tag:"비근로일 · 재정비", blocks:[
+    ["09:00","10:00","09:00–10:00","기상 · 아침식사","neutral"],
+    ["10:00","12:00","10:00–12:00","Argos 개발","purple"],
+    ["12:00","13:00","12:00–13:00","점심","neutral"],
+    ["13:00","15:00","13:00–15:00","논문준비","teal"],
+    ["15:00","16:00","15:00–16:00","휴식","neutral"],
+    ["16:00","17:30","16:00–17:30","유튜브 편집(다음주 준비)","coral"],
+    ["17:30","19:00","17:30–19:00","휴식 · 재충전","neutral"],
+    ["19:00","20:00","19:00–20:00","저녁식사","neutral"],
+    ["20:00","21:00","20:00–21:00","다음주 계획 정리","neutral"],
+    ["21:00","22:30","21:00–22:30","자유시간","neutral"],
+    ["22:30","24:00","22:30–00:00","취침준비","neutral"],
+  ]},
+];
+
+function toMinutes(t){
+  const [h,m] = t.split(":").map(Number);
+  return h*60+m;
+}
+
+let selectedIdx = null;
+
+function render(){
+  const now = new Date();
+  const jsDay = now.getDay(); // 0=Sun..6=Sat
+  const todayIdx = jsDay === 0 ? 6 : jsDay - 1; // 0=Mon..6=Sun
+  if(selectedIdx === null) selectedIdx = todayIdx;
+
+  const nowMin = now.getHours()*60 + now.getMinutes();
+
+  document.getElementById("clock").textContent =
+    now.toLocaleDateString('ko-KR', { month:'long', day:'numeric' }) + '  ' +
+    now.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = "";
+  DAYS.forEach((d, i) => {
+    const t = document.createElement("div");
+    t.className = "tab" + (i === selectedIdx ? " active" : "");
+    t.textContent = d.name.slice(0,1);
+    if(i === todayIdx){
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      t.appendChild(dot);
+    }
+    t.onclick = () => { selectedIdx = i; render(); };
+    tabsEl.appendChild(t);
+  });
+
+  const day = DAYS[selectedIdx];
+  document.getElementById("dayName").textContent = day.name;
+  document.getElementById("dayTag").textContent = day.tag;
+
+  const rowsEl = document.getElementById("rows");
+  rowsEl.innerHTML = "";
+  day.blocks.forEach(([start, end, label, name, color]) => {
+    const isNow = (selectedIdx === todayIdx) &&
+      nowMin >= toMinutes(start) &&
+      nowMin < (toMinutes(end) <= toMinutes(start) ? toMinutes(end)+1440 : toMinutes(end));
+
+    const row = document.createElement("div");
+    row.className = "row" + (isNow ? " now" : "");
+
+    const timeEl = document.createElement("span");
+    timeEl.className = "time";
+    timeEl.textContent = label;
+    row.appendChild(timeEl);
+
+    const pill = document.createElement("span");
+    pill.className = "pill " + color;
+    pill.textContent = name;
+    if(isNow){
+      const badge = document.createElement("span");
+      badge.className = "now-badge";
+      badge.textContent = "지금";
+      pill.appendChild(badge);
+    }
+    row.appendChild(pill);
+
+    rowsEl.appendChild(row);
+  });
+}
+
+render();
+setInterval(render, 30000);
+</script>
+</body>
+</html>
