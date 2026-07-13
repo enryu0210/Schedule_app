@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "위젯 창에 필요한 최소 권한. 원격(배포된 웹앱) 페이지에서도 창 이동/닫기를 쓸 수 있게 remote 를 명시한다.",
+  "windows": ["widget"],
+  "remote": {
+    "urls": ["https://schedule-repo-eight.vercel.app"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close"
+  ]
+}

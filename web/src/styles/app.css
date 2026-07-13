@@ -401,7 +401,12 @@
   background: transparent;
   padding: 0;
   overflow: hidden;
+  height: 100vh;
 }
+
+/* 위젯은 창(부모) 높이를 그대로 채워야 한다. 100vh 를 쓰면 미리보기처럼
+   창보다 작은 컨테이너 안에서는 카드가 넘쳐버리므로 100% 로 잡는다. */
+.widget-body #root { height: 100%; }
 
 .widget {
   background: var(--card);
@@ -413,8 +418,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  /* 위젯 창 크기에 맞춰 꽉 채운다. */
-  min-height: 100vh;
+  /* 위젯 창(또는 미리보기 컨테이너) 크기에 맞춰 꽉 채운다. */
+  height: 100%;
+  overflow: hidden;
 }
 
 .widget-center {

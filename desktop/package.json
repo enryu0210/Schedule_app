@@ -1,0 +1,14 @@
+{
+  "name": "schedule-app-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "일정공방 데스크탑 위젯 (Tauri 셸)",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}
