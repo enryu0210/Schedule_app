@@ -14,6 +14,7 @@ mod win_desktop;
 mod win_webview;
 
 mod tray;
+mod update;
 
 use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
@@ -21,6 +22,9 @@ use tauri_plugin_window_state::StateFlags;
 
 pub fn run() {
     tauri::Builder::default()
+        // 자동 업데이트 (+ 업데이트 여부를 묻는 창)
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         // 껐다 켜도 마지막에 두었던 자리에 그대로 뜨게 한다.
         // 위치/크기만 복원한다 — 보이기 여부까지 복원하면 '숨긴 채로 종료 → 다음 실행에도 안 보임'이 되어
         // 사용자가 앱이 고장 난 줄 알게 된다.
@@ -53,6 +57,9 @@ pub fn run() {
 
             // 트레이가 없으면 위젯을 끄거나 숨길 방법이 아예 없으므로, 실패하면 앱을 띄우지 않는다.
             tray::setup_tray(app)?;
+
+            // 새 버전이 있는지 백그라운드로 확인한다. (없으면 조용히 넘어간다)
+            update::check_on_startup(app.handle());
 
             Ok(())
         })

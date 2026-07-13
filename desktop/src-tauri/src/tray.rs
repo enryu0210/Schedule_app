@@ -9,6 +9,7 @@
  *   · 위젯 보이기/숨기기  (트레이 아이콘 좌클릭도 같은 동작)
  *   · 항상 위             (체크 항목 — 기본 꺼짐)
  *   · 윈도우 시작 시 실행  (체크 항목 — 켜고 끌 수 있음)
+ *   · 업데이트 확인
  *   · 종료
  */
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
@@ -46,6 +47,7 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         autostart_on,
         None::<&str>,
     )?;
+    let update_item = MenuItem::with_id(handle, "update", "업데이트 확인", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(handle, "quit", "종료", true, None::<&str>)?;
 
     let menu = Menu::with_items(
@@ -55,6 +57,7 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
             &on_top_item,
             &autostart_item,
             &PredefinedMenuItem::separator(handle)?,
+            &update_item,
             &quit_item,
         ],
     )?;
@@ -77,6 +80,7 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
             "toggle" => toggle_widget(app),
             "on_top" => set_always_on_top(app, &on_top_item_for_event),
             "autostart" => set_autostart(app, &autostart_item_for_event),
+            "update" => crate::update::check_manually(app),
             "quit" => app.exit(0),
             other => eprintln!("[widget] 알 수 없는 트레이 메뉴 항목: {other}"),
         })
