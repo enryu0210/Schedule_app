@@ -8,12 +8,7 @@ import { useAuth } from "./hooks/useAuth";
 import { LoginScreen } from "./components/LoginScreen";
 import { Planner } from "./components/Planner";
 import { WidgetView } from "./components/WidgetView";
-
-// 데스크탑 위젯(Tauri)은 이 웹앱을 "?widget=1" 로 그대로 띄운다.
-// 덕분에 로그인/데이터 동기화 코드를 두 벌로 관리하지 않아도 된다.
-function isWidgetMode(): boolean {
-  return new URLSearchParams(window.location.search).get("widget") === "1";
-}
+import { isWidgetMode } from "./lib/widgetMode";
 
 export default function App() {
   const { user, loading } = useAuth();

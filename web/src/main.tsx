@@ -5,13 +5,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
+import { isWidgetMode, applyWidgetChrome } from "./lib/widgetMode";
 import "./styles/tokens.css";
 import "./styles/app.css";
 
-// 위젯 모드에서는 배경을 투명하게 만들어야 한다(Tauri 창이 둥근 카드처럼 보이도록).
-// CSS만으로는 body 배경색을 덮을 수 없어, 진입 시점에 클래스를 붙여 구분한다.
-if (new URLSearchParams(window.location.search).get("widget") === "1") {
-  document.body.classList.add("widget-body");
+// 위젯 모드는 배경 투명화·우클릭 차단처럼 body 단위 처리가 필요해 진입 시점에 한 번만 적용한다.
+if (isWidgetMode()) {
+  applyWidgetChrome();
 }
 
 const rootEl = document.getElementById("root");

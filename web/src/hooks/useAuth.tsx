@@ -61,9 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // "account_email profile_image profile_nickname" 로 고정되어 있어
     // 클라이언트에서 scopes 를 지정해도 "제거"는 안 되고 덧붙기만 한다.
     // 따라서 이메일/프로필사진 동의항목은 카카오 콘솔에서 사용 가능하게 열어줘야 한다.
+    // 돌아올 주소에 현재 쿼리스트링(?widget=1)을 반드시 살려둔다.
+    // origin 만 주면 위젯 창에서 로그인했을 때 위젯이 아닌 전체 앱 화면으로 돌아와버린다.
+    const redirectTo =
+      window.location.origin + window.location.pathname + window.location.search;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo },
     });
     if (error) {
       console.error("[Auth] 카카오 로그인 실패", error);
