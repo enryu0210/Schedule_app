@@ -1,0 +1,36 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    주간 계획표 앱 아이콘.
+    - 브랜드 네이비(#0c447c) 배경 위에 화이트 카드(앱의 계획표 카드),
+      그 안에 시간 블록(퍼플/틸/코랄)과 '지금' 강조선을 얹어 앱 정체성을 그대로 담았다.
+  -->
+
+  <!-- 배경: 브랜드 네이비 라운드 사각형 -->
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="#0c447c"/>
+
+  <!-- 살짝 밝은 상단 그라데이션으로 입체감 -->
+  <defs>
+    <linearGradient id="bgShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bgShine)"/>
+
+  <!-- 계획표 카드 -->
+  <rect x="96" y="112" width="320" height="288" rx="40" fill="#ffffff"/>
+
+  <!-- 시간 블록들 (왼쪽 작은 시간표시 + 색상 pill) -->
+  <!-- 블록 1: 퍼플 -->
+  <rect x="132" y="160" width="28" height="10" rx="5" fill="#c9c6bd"/>
+  <rect x="176" y="150" width="204" height="48" rx="14" fill="#eeedfe"/>
+
+  <!-- 블록 2: 틸 (지금 진행 중 - 왼쪽 네이비 강조선) -->
+  <rect x="132" y="234" width="28" height="10" rx="5" fill="#c9c6bd"/>
+  <rect x="158" y="218" width="7" height="48" rx="3.5" fill="#0c447c"/>
+  <rect x="176" y="210" width="204" height="48" rx="14" fill="#e1f5ee"/>
+
+  <!-- 블록 3: 코랄 -->
+  <rect x="132" y="294" width="28" height="10" rx="5" fill="#c9c6bd"/>
+  <rect x="176" y="270" width="204" height="48" rx="14" fill="#faece7"/>
+</svg>
