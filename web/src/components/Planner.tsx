@@ -10,14 +10,16 @@ import { useState } from "react";
 import type { Preset, ScheduleBlock } from "../types";
 import { createEmptyPreset } from "../data/defaultPreset";
 import { createId } from "../lib/id";
-import { jsDayToMondayIndex, toMinutes } from "../lib/time";
+import { jsDayToMondayIndex, oneHourLater, toMinutes } from "../lib/time";
 import { useNow } from "../hooks/useNow";
 import { usePresetStore } from "../hooks/usePresetStore";
+import { useViewMode } from "../hooks/useViewMode";
 import { PresetSidebar } from "./PresetSidebar";
 import { DayTabs } from "./DayTabs";
 import { ScheduleCard } from "./ScheduleCard";
+import { WeekGrid } from "./WeekGrid";
+import { ViewToggle } from "./ViewToggle";
 import { BlockEditor } from "./BlockEditor";
-import { oneHourLater } from "./QuickAddRow";
 import { NameDialog } from "./NameDialog";
 import { AuthBar } from "./AuthBar";
 
@@ -32,9 +34,14 @@ export function Planner() {
 
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(todayIdx);
 
+  // 보기 방식: 목록(차트형) / 시간표(그래프형). 기기별로 기억된다.
+  const [viewMode, setViewMode] = useViewMode();
+
   // 모달/드로어 상태
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
   const [showBlockEditor, setShowBlockEditor] = useState(false);
+  // 그래프 뷰의 빈 칸을 눌러 추가할 때 미리 채워둘 시작 시각.
+  const [editorStart, setEditorStart] = useState<string | undefined>(undefined);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null); // 이름 변경 중인 프리셋
   const [sidebarOpen, setSidebarOpen] = useState(false);             // 모바일 드로어 열림 여부
@@ -172,8 +179,30 @@ export function Planner() {
         : [...blocks, block];
       return sortBlocks(next);
     });
+    closeBlockEditor();
+  }
+
+  function closeBlockEditor() {
     setShowBlockEditor(false);
     setEditingBlock(null);
+    setEditorStart(undefined);
+  }
+
+  // 그래프 뷰에서 블록을 눌렀을 때. 그 블록이 속한 요일로 선택을 옮긴 뒤 편집 모달을 연다.
+  // (편집/저장 로직은 "선택된 요일"을 기준으로 동작하므로 요일을 먼저 맞춰줘야 한다.)
+  function handleGridEdit(dayIdx: number, block: ScheduleBlock) {
+    setSelectedDayIdx(dayIdx);
+    setEditingBlock(block);
+    setEditorStart(undefined);
+    setShowBlockEditor(true);
+  }
+
+  // 그래프 뷰의 빈 칸을 눌렀을 때. 누른 시각을 시작값으로 채운 추가 모달을 연다.
+  function handleGridAdd(dayIdx: number, start: string) {
+    setSelectedDayIdx(dayIdx);
+    setEditingBlock(null);
+    setEditorStart(start);
+    setShowBlockEditor(true);
   }
 
   function handleDeleteBlock(blockId: string) {
@@ -227,48 +256,67 @@ export function Planner() {
           <div className="clock">{clockText}</div>
         </div>
 
-        <DayTabs
-          days={currentPreset.days}
-          selectedIdx={selectedDayIdx}
-          todayIdx={todayIdx}
-          onSelect={setSelectedDayIdx}
-        />
-
-        <ScheduleCard
-          day={currentDay}
-          dayId={`${currentPreset.id}:${selectedDayIdx}`}
-          isToday={selectedDayIdx === todayIdx}
-          nowMin={nowMin}
-          onEditBlock={(b) => {
-            setEditingBlock(b);
-            setShowBlockEditor(true);
-          }}
-          onDeleteBlock={handleDeleteBlock}
-          onQuickAdd={handleQuickAdd}
-        />
-
-        <div className="actions">
-          {/* 색상·종료 시각까지 지정하는 상세 추가는 모달로 */}
-          <button
-            className="btn"
-            onClick={() => {
-              setEditingBlock(null);
-              setShowBlockEditor(true);
-            }}
-          >
-            + 상세 추가
-          </button>
+        <div className="view-row">
+          <ViewToggle value={viewMode} onChange={setViewMode} />
         </div>
+
+        {viewMode === "chart" ? (
+          <>
+            <DayTabs
+              days={currentPreset.days}
+              selectedIdx={selectedDayIdx}
+              todayIdx={todayIdx}
+              onSelect={setSelectedDayIdx}
+            />
+
+            <ScheduleCard
+              day={currentDay}
+              dayId={`${currentPreset.id}:${selectedDayIdx}`}
+              isToday={selectedDayIdx === todayIdx}
+              nowMin={nowMin}
+              onEditBlock={(b) => {
+                setEditingBlock(b);
+                setShowBlockEditor(true);
+              }}
+              onDeleteBlock={handleDeleteBlock}
+              onQuickAdd={handleQuickAdd}
+            />
+
+            <div className="actions">
+              {/* 색상·종료 시각까지 지정하는 상세 추가는 모달로 */}
+              <button
+                className="btn"
+                onClick={() => {
+                  setEditingBlock(null);
+                  setShowBlockEditor(true);
+                }}
+              >
+                + 상세 추가
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <WeekGrid
+              days={currentPreset.days}
+              todayIdx={todayIdx}
+              nowMin={nowMin}
+              onEditBlock={handleGridEdit}
+              onAddBlockAt={handleGridAdd}
+            />
+            <div className="grid-hint">
+              빈 칸을 누르면 그 시각으로 새 블록을 추가할 수 있어요.
+            </div>
+          </>
+        )}
       </div>
 
       {showBlockEditor && (
         <BlockEditor
           initial={editingBlock}
+          defaultStart={editorStart}
           onSave={handleSaveBlock}
-          onCancel={() => {
-            setShowBlockEditor(false);
-            setEditingBlock(null);
-          }}
+          onCancel={closeBlockEditor}
         />
       )}
 

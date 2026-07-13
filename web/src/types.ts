@@ -28,6 +28,11 @@ export interface DayPlan {
   blocks: ScheduleBlock[];
 }
 
+// 시간표를 보는 방식.
+// - chart: 하루씩 "시간 + 할 일" 목록으로 보는 기존 방식
+// - graph: 일주일 전체를 에브리타임식 세로 그리드로 한눈에 보는 방식
+export type ViewMode = "chart" | "graph";
+
 // 프리셋 하나 = 라벨을 붙인 일주일 전체 시간표.
 // (예: "방학", "학기중", "휴가")
 export interface Preset {

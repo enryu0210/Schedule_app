@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import type { BlockColor, ScheduleBlock } from "../types";
-import { toMinutes } from "../lib/time";
+import { oneHourLater, toMinutes } from "../lib/time";
 import { createId } from "../lib/id";
 
 const COLORS: BlockColor[] = ["neutral", "gray", "purple", "teal", "coral", "pink"];
@@ -13,13 +13,16 @@ const COLORS: BlockColor[] = ["neutral", "gray", "purple", "teal", "coral", "pin
 interface Props {
   // 편집 대상 블록. 새로 추가하는 경우 null.
   initial: ScheduleBlock | null;
+  // 새로 추가할 때 미리 채워둘 시작 시각. (그래프 뷰에서 빈 칸을 눌러 들어온 경우)
+  defaultStart?: string;
   onSave: (block: ScheduleBlock) => void;
   onCancel: () => void;
 }
 
-export function BlockEditor({ initial, onSave, onCancel }: Props) {
-  const [start, setStart] = useState(initial?.start ?? "09:00");
-  const [end, setEnd] = useState(initial?.end ?? "10:00");
+export function BlockEditor({ initial, defaultStart, onSave, onCancel }: Props) {
+  const start0 = initial?.start ?? defaultStart ?? "09:00";
+  const [start, setStart] = useState(start0);
+  const [end, setEnd] = useState(initial?.end ?? oneHourLater(start0));
   const [label, setLabel] = useState(initial?.label ?? "");
   const [color, setColor] = useState<BlockColor>(initial?.color ?? "neutral");
   const [error, setError] = useState("");

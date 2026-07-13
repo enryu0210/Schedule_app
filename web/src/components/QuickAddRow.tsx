@@ -8,7 +8,6 @@
  *       그래서 defaultStart(직전 블록의 끝 시각)가 매번 자동으로 반영된다.
  */
 import { useState } from "react";
-import { toMinutes, toHHMM } from "../lib/time";
 
 interface Props {
   defaultStart: string; // 시작 시각 초기값 (보통 직전 블록의 끝 시각)
@@ -47,9 +46,4 @@ export function QuickAddRow({ defaultStart, onAdd }: Props) {
       </button>
     </div>
   );
-}
-
-// 시작 시각에서 1시간 뒤를 "HH:MM"으로 돌려주는 헬퍼. (기본 종료 시각 계산용)
-export function oneHourLater(start: string): string {
-  return toHHMM(toMinutes(start) + 60);
 }
