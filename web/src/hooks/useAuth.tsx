@@ -59,7 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        // 카카오의 이메일(account_email)·프로필사진(profile_image) 동의항목은
+        // 비즈니스 앱 검수를 받아야 사용할 수 있다. 검수 전에 이들을 요청하면
+        // KOE205(동의항목 불일치) 오류가 난다.
+        // 앱에서 실제로 필요한 건 표시용 '닉네임'뿐이므로 그것만 요청한다.
+        scopes: "profile_nickname",
+      },
     });
     if (error) {
       console.error("[Auth] 카카오 로그인 실패", error);

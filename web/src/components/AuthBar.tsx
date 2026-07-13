@@ -22,9 +22,17 @@ export function AuthBar() {
     );
   }
 
-  // 사용자 표시 이름: 소셜 프로필 이름 → 이메일 → "사용자" 순으로 골라 쓴다.
+  // 사용자 표시 이름 고르기.
+  // 카카오는 프로필 정보를 user_metadata 에 담아주는데, 필드 이름이
+  // name / nickname / full_name / user_name 등으로 제공자마다 다를 수 있어
+  // 있는 것부터 순서대로 사용한다. (없으면 이메일 → "사용자")
+  const meta = (user.user_metadata ?? {}) as Record<string, string | undefined>;
   const displayName =
-    (user.user_metadata?.name as string | undefined) ??
+    meta.name ??
+    meta.nickname ??
+    meta.full_name ??
+    meta.user_name ??
+    meta.preferred_username ??
     user.email ??
     "사용자";
 
