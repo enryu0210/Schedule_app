@@ -1,6 +1,6 @@
 [package]
 name = "schedule-widget"
-version = "0.1.0"
+version = "0.1.1"
 description = "일정공방 데스크탑 위젯"
 authors = ["Enryu"]
 edition = "2021"
