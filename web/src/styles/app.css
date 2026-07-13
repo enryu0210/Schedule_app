@@ -5,6 +5,65 @@
 
 .wrap { max-width: 560px; margin: 0 auto; }
 
+/* ── 앱 셸: 왼쪽 사이드바 + 메인(계획표) 2열 레이아웃 ── */
+.app-shell {
+  display: flex; gap: 28px;
+  justify-content: center; align-items: flex-start;
+  max-width: 830px; margin: 0 auto;
+}
+.app-shell .wrap { margin: 0; flex: 1; min-width: 0; }
+
+/* 사이드바 (데스크톱: 왼쪽에 붙어 스크롤을 따라오는 레일) */
+.sidebar {
+  width: 210px; flex-shrink: 0;
+  position: sticky; top: 24px;
+  display: flex; flex-direction: column;
+}
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 0 4px; }
+.sidebar-title { font-size: 12px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-muted); text-transform: uppercase; }
+.sidebar-close { display: none; border: none; background: transparent; color: var(--text-muted); font-size: 22px; line-height: 1; padding: 0 4px; }
+
+.sidebar-list { display: flex; flex-direction: column; gap: 2px; }
+.preset-item { position: relative; display: flex; align-items: center; border-radius: 10px; border: 1px solid transparent; }
+.preset-item .name {
+  flex: 1; min-width: 0; text-align: left; padding: 9px 12px;
+  font-size: 14px; font-weight: 600; color: var(--text-secondary);
+  background: transparent; border: none; border-radius: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.preset-item.active { background: var(--accent-bg); border-color: var(--accent); }
+.preset-item.active .name { color: var(--accent); }
+.preset-item .menu-btn {
+  flex-shrink: 0; border: none; background: transparent; color: var(--text-muted);
+  padding: 0 8px; font-size: 17px; line-height: 1; opacity: 0; transition: opacity .12s;
+}
+.preset-item:hover .menu-btn, .preset-item .menu-btn.open { opacity: 1; }
+
+/* 프리셋 ⋯ 메뉴 (팝오버) */
+.preset-menu {
+  position: absolute; right: 6px; top: calc(100% - 2px); z-index: 30;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(42, 35, 29, 0.12); padding: 4px; min-width: 128px;
+}
+.preset-menu button {
+  display: block; width: 100%; text-align: left; border: none; background: transparent;
+  padding: 8px 10px; font-size: 13px; border-radius: 7px; color: var(--text);
+}
+.preset-menu button:hover:not(:disabled) { background: var(--bg); }
+.preset-menu button:disabled { opacity: 0.35; cursor: default; }
+.preset-menu button.danger { color: #b3261e; }
+
+.sidebar-add { margin-top: 10px; width: 100%; color: var(--text-secondary); font-weight: 700; }
+
+/* 사이드바 열기 버튼(햄버거) — 모바일에서만 노출 */
+.sidebar-toggle {
+  display: none; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--card); color: var(--text-secondary);
+  border-radius: 9px; padding: 6px 11px; font-size: 15px; line-height: 1; margin-right: auto;
+}
+/* 모바일 드로어 뒤 배경 (평소 숨김) */
+.sidebar-backdrop { display: none; }
+
 /* 로그인 바 (우측 정렬) */
 .auth-row { display: flex; justify-content: flex-end; min-height: 32px; margin-bottom: 4px; }
 .kakao-login {
@@ -32,24 +91,6 @@
 }
 .top h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--text-secondary); }
 .top .clock { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-/* 프리셋 탭 줄 */
-.preset-bar {
-  display: flex; gap: 6px; margin-bottom: 12px;
-  overflow-x: auto; padding-bottom: 2px; align-items: center;
-}
-.preset-chip {
-  padding: 7px 14px; border-radius: 999px;
-  font-size: 13px; font-weight: 600;
-  border: 1px solid var(--border); background: var(--card);
-  color: var(--text-secondary); white-space: nowrap;
-}
-.preset-chip.active {
-  background: var(--accent-bg); border-color: var(--accent); color: var(--accent);
-}
-.preset-chip.add {
-  color: var(--text-muted); font-weight: 700; padding: 7px 12px;
-}
 
 /* 요일 탭 */
 .tabs { display: flex; gap: 6px; margin-bottom: 18px; overflow-x: auto; padding-bottom: 2px; }
@@ -96,13 +137,39 @@
   color: var(--accent); background: var(--accent-bg); padding: 2px 6px; border-radius: 6px; vertical-align: middle;
 }
 
-/* 편집 모드에서 블록을 누르면 편집되도록 커서 표시 */
+/* 상시 편집: 블록을 누르면 편집되도록 커서 표시 */
 .row.editable .pill { cursor: pointer; }
 .row .del-btn {
-  border: none; background: transparent; color: var(--text-muted);
-  font-size: 16px; padding: 0 4px; line-height: 1;
+  flex-shrink: 0; border: none; background: transparent; color: var(--text-muted);
+  font-size: 16px; padding: 0 4px; line-height: 1; opacity: 1;
+}
+/* 마우스가 있는 환경(데스크톱)에선 평소 숨겼다가 행에 hover 시 노출 → 깔끔하게.
+   터치 기기에선 hover 가 없으므로 항상 보이게 둔다(위 opacity:1). */
+@media (hover: hover) {
+  .row .del-btn { opacity: 0; transition: opacity .12s; }
+  .row:hover .del-btn { opacity: 1; }
 }
 .empty-hint { color: var(--text-muted); font-size: 13px; padding: 12px 0; text-align: center; }
+
+/* 카드 하단 빠른 추가 한 줄 */
+.quick-add {
+  display: flex; gap: 8px; align-items: center;
+  margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border);
+}
+.quick-add input[type="time"] {
+  flex-shrink: 0; width: 112px; padding: 8px 10px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg);
+  font-size: 13px; font-family: inherit; color: var(--text);
+}
+.quick-add input[type="text"] {
+  flex: 1; min-width: 0; padding: 8px 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg);
+  font-size: 14px; font-family: inherit; color: var(--text);
+}
+.quick-add .add-btn {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 9px; border: none;
+  background: var(--accent); color: #fff; font-size: 20px; line-height: 1;
+}
 
 /* 하단 액션 버튼 */
 .actions { display: flex; gap: 8px; margin-top: 14px; }
@@ -178,3 +245,26 @@
 }
 .login-note { color: var(--text-muted); font-size: 12px; line-height: 1.6; margin: 20px 0 0; }
 .login-warn { color: var(--accent); font-size: 13px; line-height: 1.6; }
+
+/* ── 모바일: 사이드바를 왼쪽에서 나오는 드로어로 전환 ── */
+@media (max-width: 720px) {
+  .app-shell { display: block; max-width: 560px; }
+
+  /* 햄버거 노출, 사이드바는 화면 밖에 숨겨두었다가 .open 시 슬라이드 인 */
+  .sidebar-toggle { display: inline-flex; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 250px; z-index: 200;
+    background: var(--card); border-right: 1px solid var(--border);
+    padding: 20px 16px; margin: 0; overflow-y: auto;
+    transform: translateX(-100%); transition: transform .22s ease;
+  }
+  .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(42, 35, 29, 0.18); }
+  .sidebar-close { display: block; }
+  .preset-item .menu-btn { opacity: 1; } /* 터치 환경에선 ⋯ 항상 노출 */
+
+  /* 드로어가 열렸을 때 뒤 배경 */
+  .sidebar-backdrop.show {
+    display: block; position: fixed; inset: 0; z-index: 150;
+    background: rgba(20, 20, 18, 0.35);
+  }
+}
