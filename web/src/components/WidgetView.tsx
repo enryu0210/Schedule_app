@@ -8,6 +8,7 @@ import { useWidgetPresets } from "../hooks/useWidgetPresets";
 import { useAuth } from "../hooks/useAuth";
 import { useNow } from "../hooks/useNow";
 import { jsDayToMondayIndex } from "../lib/time";
+import { expandForLogin } from "../lib/widgetWindow";
 import { WidgetBody } from "./WidgetBody";
 
 export function WidgetView() {
@@ -21,11 +22,18 @@ export function WidgetView() {
   }
 
   // 2) 비로그인 — 위젯에서도 바로 로그인할 수 있게 버튼을 둔다.
+  //    카카오 로그인 페이지는 위젯 크기(300x230)에 안 들어가므로, 로그인 동안만 창을 키운다.
+  //    (원래 크기로는 로그인 흐름이 끝나 앱이 다시 뜰 때 되돌아온다 — lib/widgetWindow.ts)
+  async function handleLogin() {
+    await expandForLogin();
+    await signInWithKakao();
+  }
+
   if (!user) {
     return (
       <div className="widget widget-center">
         <p className="widget-empty">로그인하면 오늘 일정이 보여요</p>
-        <button className="widget-login" onClick={signInWithKakao}>
+        <button className="widget-login" onClick={handleLogin}>
           카카오로 로그인
         </button>
       </div>
