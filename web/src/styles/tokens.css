@@ -4,22 +4,23 @@
  * - 색을 한 곳에서 관리하면 나중에 다크모드/테마 추가가 쉬워진다.
  */
 :root {
-  --bg: #f7f6f3;
-  --card: #ffffff;
-  --border: #e6e4de;
-  --text: #1e1e1c;
-  --text-secondary: #78766f;
-  --text-muted: #a5a39b;
-  --accent: #0c447c;
-  --accent-bg: #e6f1fb;
+  /* ── 따뜻한 톤(테라코타/크림) 테마 — "일정공방" 브랜드 색과 통일 ── */
+  --bg: #faf5ee;            /* 따뜻한 크림 배경 */
+  --card: #fffdf9;          /* 살짝 노란기 도는 화이트 카드 */
+  --border: #ece2d5;        /* 따뜻한 베이지 테두리 */
+  --text: #2a231d;          /* near-black 대신 짙은 브라운 */
+  --text-secondary: #8a7c6d;
+  --text-muted: #b6a794;
+  --accent: #c25f38;        /* 테라코타 (기존 네이비 대체) */
+  --accent-bg: #f9e6dc;     /* 연한 테라코타 배경 */
 
-  /* 시간 블록에 쓰는 색상 팔레트 (fill=배경, text=글자색) */
-  --gray-fill: #f1efe8;    --gray-text: #2c2c2a;
-  --purple-fill: #eeedfe;  --purple-text: #26215c;
-  --teal-fill: #e1f5ee;    --teal-text: #04342c;
-  --coral-fill: #faece7;   --coral-text: #4a1b0c;
-  --pink-fill: #fbeaf0;    --pink-text: #4b1528;
-  --neutral-fill: #f5f5f3; --neutral-text: #5f5e5a;
+  /* 시간 블록 색상 팔레트 (fill=배경, text=글자색) — 전체적으로 톤을 따뜻하게 조정 */
+  --gray-fill: #f1ebe1;    --gray-text: #3a322a;
+  --purple-fill: #efe9f7;  --purple-text: #3d2f5c;   /* 라벤더(차분한 포인트) */
+  --teal-fill: #e5efd9;    --teal-text: #2f3d1a;     /* 세이지 그린 */
+  --coral-fill: #fbe3d5;   --coral-text: #5c2c14;    /* 살구/코랄 */
+  --pink-fill: #f9e0dd;    --pink-text: #5c1f22;     /* 더스티 로즈 */
+  --neutral-fill: #f6f0e7; --neutral-text: #6b6155;
 
   --radius: 16px;
   --radius-sm: 10px;

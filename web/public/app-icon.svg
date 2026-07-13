@@ -1,0 +1,38 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    "일정공방" 앱 아이콘 (따뜻한 버전).
+    - 공방(수공예) 감성의 테라코타/클레이 톤 배경 + 크림 카드.
+    - 시간 블록은 살구/세이지/로즈 등 따뜻한 색으로, '지금' 강조선은 테라코타로 통일.
+  -->
+  <defs>
+    <!-- 따뜻한 테라코타 그라데이션 배경 -->
+    <linearGradient id="warmBg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#e08a5b"/>
+      <stop offset="1" stop-color="#c25f38"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 배경 -->
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#warmBg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#shine)"/>
+
+  <!-- 계획표 카드 (따뜻한 크림색) -->
+  <rect x="96" y="112" width="320" height="288" rx="40" fill="#fdf6ee"/>
+
+  <!-- 블록 1: 살구/허니 -->
+  <rect x="132" y="160" width="28" height="10" rx="5" fill="#d8c3ab"/>
+  <rect x="176" y="150" width="204" height="48" rx="14" fill="#fbe4cb"/>
+
+  <!-- 블록 2: 세이지 (지금 진행 중 - 왼쪽 테라코타 강조선) -->
+  <rect x="132" y="234" width="28" height="10" rx="5" fill="#d8c3ab"/>
+  <rect x="158" y="218" width="7" height="48" rx="3.5" fill="#c25f38"/>
+  <rect x="176" y="210" width="204" height="48" rx="14" fill="#e6ead1"/>
+
+  <!-- 블록 3: 더스티 로즈 -->
+  <rect x="132" y="294" width="28" height="10" rx="5" fill="#d8c3ab"/>
+  <rect x="176" y="270" width="204" height="48" rx="14" fill="#f7dcd7"/>
+</svg>

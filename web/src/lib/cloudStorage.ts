@@ -8,7 +8,8 @@ import { supabase } from "./supabaseClient";
 
 export interface CloudState {
   presets: Preset[];
-  selectedPresetId: string;
+  // 프리셋이 하나도 없는 신규 사용자는 null 일 수 있다.
+  selectedPresetId: string | null;
 }
 
 // 클라우드에서 사용자의 프리셋을 불러온다.

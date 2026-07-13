@@ -1,69 +1,68 @@
 /*
- * 프리셋 저장소 훅. 로컬(localStorage)과 클라우드(Supabase)를 하나로 묶는다.
+ * 프리셋 저장소 훅 (클라우드 전용).
  *
- * 동작 규칙:
- *   - 비로그인: localStorage 만 사용 (지금까지와 동일).
- *   - 로그인:   클라우드 데이터를 불러와 화면에 반영. 이후 변경은 로컬+클라우드 동시 저장.
- *   - 첫 로그인(클라우드에 데이터 없음): 지금 쓰던 로컬 데이터를 클라우드로 올린다(마이그레이션).
+ * 정책 변경:
+ *   - 이 앱은 "로그인 후 사용"이 원칙이다. 그래서 로그인한 사용자의 데이터를
+ *     Supabase(클라우드)에서만 읽고 쓴다.
+ *   - 신규 사용자는 저장된 프리셋이 없으므로 "빈 상태"로 시작한다.
+ *     (예전처럼 '방학' 기본 프리셋을 자동으로 만들지 않는다.)
  *
- * 주의: 로그인 직후 클라우드를 다 읽기 전에 로컬 데이터를 덮어쓰지 않도록
- *       'cloudLoadedForUser' ref 로 순서를 보장한다. (데이터 유실 방지)
+ * 주의: 클라우드 로딩이 끝나기 전(loaded=false)에는 저장하지 않는다.
+ *       빈 초기값으로 클라우드를 덮어쓰는 사고를 막기 위함이다.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Preset } from "../types";
-import { loadState, saveState } from "../lib/storage";
 import { loadCloudPresets, saveCloudPresets } from "../lib/cloudStorage";
 import { useAuth } from "./useAuth";
 
 export function usePresetStore() {
   const { user } = useAuth();
 
-  // 최초엔 로컬 데이터로 시작한다. (로그인 상태면 아래 effect가 클라우드로 교체)
-  const initialLocal = useMemo(() => loadState(), []);
-  const [presets, setPresets] = useState<Preset[]>(initialLocal.presets);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(
-    initialLocal.selectedPresetId
-  );
-
-  // 현재 로그인한 사용자의 클라우드 데이터를 다 읽었는지 표시.
-  // 이 값이 세팅되기 전엔 클라우드 저장을 하지 않아, 로컬로 클라우드를 덮는 사고를 막는다.
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  // 현재 로그인한 사용자의 클라우드 데이터를 다 읽었는지 여부.
+  const [loaded, setLoaded] = useState(false);
   const cloudLoadedForUser = useRef<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
 
-  // 로그인 상태가 바뀌면 클라우드에서 데이터를 가져온다.
+  // 로그인한 사용자가 바뀌면 그 사용자의 클라우드 데이터를 불러온다.
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // 로그아웃 상태로 돌아가면 상태를 비운다.
+      setPresets([]);
+      setSelectedPresetId(null);
+      setLoaded(false);
+      cloudLoadedForUser.current = null;
+      return;
+    }
+
     let cancelled = false;
-    setSyncing(true);
+    setLoaded(false);
 
     loadCloudPresets(user.id).then((cloud) => {
       if (cancelled) return;
       if (cloud) {
-        // 클라우드에 데이터가 있으면 그것을 우선으로 화면에 반영.
         setPresets(cloud.presets);
         setSelectedPresetId(cloud.selectedPresetId);
       } else {
-        // 클라우드가 비어 있으면(첫 로그인) 지금 로컬 데이터를 올린다.
-        saveCloudPresets(user.id, { presets, selectedPresetId });
+        // 신규 사용자: 저장된 게 없으니 빈 상태로 시작.
+        setPresets([]);
+        setSelectedPresetId(null);
       }
       cloudLoadedForUser.current = user.id;
-      setSyncing(false);
+      setLoaded(true);
     });
 
     return () => {
       cancelled = true;
     };
-    // 로그인한 사용자가 바뀔 때만 다시 불러온다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // 프리셋이 바뀔 때마다 저장. 로컬은 항상, 클라우드는 로그인+클라우드로딩 완료 시에만.
+  // 프리셋이 바뀌면 클라우드에 저장. (로딩 완료 + 사용자 일치 시에만)
   useEffect(() => {
-    saveState(presets, selectedPresetId); // 로컬은 항상 최신으로 유지(오프라인 캐시 역할)
-    if (user && cloudLoadedForUser.current === user.id) {
-      saveCloudPresets(user.id, { presets, selectedPresetId });
-    }
-  }, [presets, selectedPresetId, user]);
+    if (!user) return;
+    if (!loaded || cloudLoadedForUser.current !== user.id) return;
+    saveCloudPresets(user.id, { presets, selectedPresetId });
+  }, [presets, selectedPresetId, user, loaded]);
 
-  return { presets, setPresets, selectedPresetId, setSelectedPresetId, syncing };
+  return { presets, setPresets, selectedPresetId, setSelectedPresetId, loaded };
 }
