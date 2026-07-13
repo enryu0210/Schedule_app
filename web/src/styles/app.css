@@ -65,7 +65,17 @@
 .sidebar-backdrop { display: none; }
 
 /* 로그인 바 (우측 정렬) */
-.auth-row { display: flex; justify-content: flex-end; min-height: 32px; margin-bottom: 4px; }
+.auth-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  min-height: 32px; margin-bottom: 4px;
+}
+/* 데스크탑 위젯 내려받기 — 로그인 버튼보다 눈에 덜 띄게(보조 동작) */
+.download-widget {
+  background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+  padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  text-decoration: none; white-space: nowrap;
+}
+.download-widget:hover { border-color: var(--accent); color: var(--accent); }
 .kakao-login {
   background: #fee500; color: #191600; border: none;
   padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700;

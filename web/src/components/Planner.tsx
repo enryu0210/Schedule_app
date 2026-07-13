@@ -22,6 +22,7 @@ import { ViewToggle } from "./ViewToggle";
 import { BlockEditor } from "./BlockEditor";
 import { NameDialog } from "./NameDialog";
 import { AuthBar } from "./AuthBar";
+import { DownloadWidget } from "./DownloadWidget";
 
 export function Planner() {
   const { presets, setPresets, selectedPresetId, setSelectedPresetId, loaded } =
@@ -277,6 +278,7 @@ export function Planner() {
           >
             ☰
           </button>
+          <DownloadWidget />
           <AuthBar />
         </div>
 
