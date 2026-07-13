@@ -7,8 +7,14 @@ import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
 import { isWidgetMode, applyWidgetChrome } from "./lib/widgetMode";
 import { restoreAfterLogin } from "./lib/widgetWindow";
+import { initNativeAuth } from "./lib/nativeAuth";
 import "./styles/tokens.css";
 import "./styles/app.css";
+
+// 안드로이드 앱: 카카오 로그인 후 돌아오는 딥링크를 받을 준비.
+// 리스너는 앱이 뜬 직후부터 걸려 있어야 하므로 React 마운트보다 먼저 등록한다.
+// (브라우저·위젯에서는 아무 일도 하지 않는다)
+initNativeAuth();
 
 // 위젯 모드는 배경 투명화·우클릭 차단처럼 body 단위 처리가 필요해 진입 시점에 한 번만 적용한다.
 if (isWidgetMode()) {

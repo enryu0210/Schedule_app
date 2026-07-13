@@ -3,6 +3,8 @@
 ## 구조
 - 웹 앱은 `web/` 하위에 있음 — 모든 npm 명령은 `web/`에서 실행
 - 데스크탑 위젯은 `desktop/` (Tauri 2 + Rust, 윈도우 전용) — 설계·릴리스 절차는 `docs/위젯-설계.md`
+- 안드로이드 앱은 `mobile/` (Capacitor 7 + Android) — 빌드·로그인 흐름은 `docs/안드로이드-앱.md`.
+  **데스크탑 위젯과 달리 `web/dist` 를 APK 안에 번들** → 웹 코드를 고치면 `cd mobile; npm run sync` 후 재빌드해야 반영됨
 - 스택: React + Vite + TypeScript(strict), Supabase(클라우드 저장), 카카오 로그인
 - 데이터 모델: `web/src/types.ts` — Preset → DayPlan(7개) → ScheduleBlock
 - 디자인 토큰(색/여백)은 `web/src/styles/tokens.css`, 컴포넌트는 1파일 1기능

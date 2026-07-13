@@ -14,6 +14,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseEnabled } from "../lib/supabaseClient";
 import { clearWidgetCache } from "../lib/widgetCache";
+import { isNativeApp, signInWithKakaoNative } from "../lib/nativeAuth";
 
 interface AuthContextValue {
   user: User | null;
@@ -56,6 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithKakao() {
     if (!supabase) {
       alert("클라우드 기능이 아직 설정되지 않았습니다. (Supabase 키 필요)");
+      return;
+    }
+
+    // 안드로이드 앱은 로그인 방식이 아예 다르다(커스텀탭 + 딥링크 복귀 — lib/nativeAuth.ts).
+    // 웹처럼 현재 화면을 카카오로 넘겨버리면 앱이 웹페이지로 변해버린다.
+    if (isNativeApp()) {
+      try {
+        await signInWithKakaoNative();
+      } catch (e) {
+        console.error("[Auth] 카카오 로그인 실패(앱)", e);
+        alert("카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      }
       return;
     }
     // 참고: Supabase(GoTrue)의 카카오 기본 요청 scope는
