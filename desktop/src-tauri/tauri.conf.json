@@ -18,8 +18,9 @@
         "minHeight": 150,
         "decorations": false,
         "transparent": true,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "skipTaskbar": true,
+        "maximizable": false,
         "shadow": false,
         "center": false
       }

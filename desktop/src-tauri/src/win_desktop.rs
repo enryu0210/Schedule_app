@@ -28,7 +28,7 @@ pub fn keep_on_desktop(hwnd_raw: isize) {
     let hwnd = HWND(hwnd_raw as *mut core::ffi::c_void);
     unsafe {
         // 실패해도 앱이 죽을 이유는 없다. 위젯이 Win+D 에 내려갈 뿐이다.
-        if SetWindowSubclass(Some(hwnd), Some(subclass_proc), SUBCLASS_ID, 0).as_bool() == false {
+        if !SetWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID, 0).as_bool() {
             eprintln!("[widget] 창 서브클래싱 실패 — Win+D 시 위젯이 내려갈 수 있습니다.");
         }
     }
