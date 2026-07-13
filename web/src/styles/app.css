@@ -391,3 +391,122 @@
   .wg-time-label { right: 4px; font-size: 9px; }
   .wg-block { font-size: 10px; padding: 3px 3px; }
 }
+
+/* ─────────────────────────────────────────────
+   위젯 (?widget=1) — 바탕화면 위에 띄우는 작은 창
+   Tauri 창은 투명·프레임리스라, 이 카드 자체가 위젯의 겉모습이 된다.
+   ───────────────────────────────────────────── */
+.widget-body {
+  /* 창 밖 여백은 투명하게 → 둥근 모서리가 바탕화면 위에 그대로 얹힌다. */
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+}
+
+.widget {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* 바탕화면 위에 떠 있는 느낌을 주는 그림자 */
+  box-shadow: 0 8px 24px rgba(42, 35, 29, 0.16);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* 위젯 창 크기에 맞춰 꽉 채운다. */
+  min-height: 100vh;
+}
+
+.widget-center {
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.widget-empty { margin: 0; }
+
+.widget-login {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: #fee500;      /* 카카오 브랜드 컬러 */
+  color: #3a2f26;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.widget-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  /* Tauri 에서 이 영역을 잡고 창을 옮긴다(data-tauri-drag-region). */
+  cursor: move;
+  user-select: none;
+}
+
+.widget-day { font-size: 12px; color: var(--text-secondary); }
+.widget-clock { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+
+/* 지금 진행 중인 일정 — 위젯의 주인공이라 가장 크게 */
+.widget-now {
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--neutral-fill);
+  color: var(--neutral-text);
+}
+.widget-now.gray    { background: var(--gray-fill);    color: var(--gray-text); }
+.widget-now.purple  { background: var(--purple-fill);  color: var(--purple-text); }
+.widget-now.teal    { background: var(--teal-fill);    color: var(--teal-text); }
+.widget-now.coral   { background: var(--coral-fill);   color: var(--coral-text); }
+.widget-now.pink    { background: var(--pink-fill);    color: var(--pink-text); }
+.widget-now.neutral { background: var(--neutral-fill); color: var(--neutral-text); }
+
+.widget-now-idle { color: var(--text-muted); }
+.widget-now-time { font-size: 11px; opacity: 0.75; }
+.widget-now-label { font-size: 18px; font-weight: 700; line-height: 1.3; }
+
+/* 다음 일정 — 작게 두 줄 */
+.widget-next {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.widget-next-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  /* 라벨이 길어도 위젯 폭을 밀어내지 않도록 한 줄로 자른다. */
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.widget-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--neutral-fill);
+}
+.widget-dot.gray    { background: var(--gray-text); }
+.widget-dot.purple  { background: var(--purple-text); }
+.widget-dot.teal    { background: var(--teal-text); }
+.widget-dot.coral   { background: var(--coral-text); }
+.widget-dot.pink    { background: var(--pink-text); }
+.widget-dot.neutral { background: var(--neutral-text); }
+
+.widget-next-time { font-variant-numeric: tabular-nums; }
+.widget-next-label {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
