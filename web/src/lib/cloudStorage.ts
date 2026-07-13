@@ -12,27 +12,41 @@ export interface CloudState {
   selectedPresetId: string | null;
 }
 
-// 클라우드에서 사용자의 프리셋을 불러온다.
-// - 저장된 행이 없으면 null 을 반환한다(= 아직 클라우드 데이터 없음 → 로컬 데이터를 올릴 대상).
-// - 오류가 나면 null 을 반환하고 로그를 남겨, 앱이 로컬 데이터로 계속 동작하게 한다.
+// 클라우드에서 사용자의 프리셋을 불러온다. **실패하면 예외를 던진다.**
+// - 저장된 행이 없으면 null (= 아직 클라우드 데이터 없음. 이건 정상 상황이라 예외가 아니다).
+//
+// loadCloudPresets 와 나눠 둔 이유:
+//   "데이터가 없다(null)" 와 "못 읽었다(네트워크 끊김)" 는 완전히 다른 상황인데,
+//   오류를 삼켜 null 로 뭉뚱그리면 부르는 쪽이 둘을 구분할 수 없다.
+//   위젯은 이 차이가 중요하다 — 못 읽은 것뿐인데 빈 화면으로 바꿔버리면 안 되고,
+//   캐시에 남은 마지막 일정을 계속 보여줘야 한다.
+export async function fetchCloudPresets(userId: string): Promise<CloudState | null> {
+  if (!supabase) throw new Error("Supabase 클라이언트가 설정되지 않았습니다.");
+
+  const { data, error } = await supabase
+    .from("user_data")
+    .select("presets, selected_preset_id")
+    .eq("user_id", userId)
+    .maybeSingle(); // 행이 없어도 에러가 아닌 null 로 받는다.
+
+  if (error) throw error;
+  if (!data || !Array.isArray(data.presets) || data.presets.length === 0) {
+    return null;
+  }
+
+  const presets = data.presets as Preset[];
+  return {
+    presets,
+    selectedPresetId: data.selected_preset_id ?? presets[0].id,
+  };
+}
+
+// 위 함수의 "오류를 삼키는" 버전. 웹(usePresetStore)은 읽기에 실패해도
+// 로컬 데이터로 계속 동작하면 되므로 null 만 받으면 충분하다.
 export async function loadCloudPresets(userId: string): Promise<CloudState | null> {
-  if (!supabase) return null;
+  if (!supabase) return null; // 키가 없는 환경은 오류가 아니라 "클라우드 없음"으로 본다.
   try {
-    const { data, error } = await supabase
-      .from("user_data")
-      .select("presets, selected_preset_id")
-      .eq("user_id", userId)
-      .maybeSingle(); // 행이 없어도 에러가 아닌 null 로 받는다.
-
-    if (error) throw error;
-    if (!data || !Array.isArray(data.presets) || data.presets.length === 0) {
-      return null;
-    }
-
-    return {
-      presets: data.presets as Preset[],
-      selectedPresetId: data.selected_preset_id ?? (data.presets as Preset[])[0].id,
-    };
+    return await fetchCloudPresets(userId);
   } catch (e) {
     console.error("[Supabase] 프리셋 불러오기 실패", e);
     return null;

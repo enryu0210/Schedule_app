@@ -15,9 +15,31 @@ interface Props {
   todayIdx: number;          // 0=월 ... 6=일
   nowMin: number;            // 0시 기준 현재 분
   blocks: ScheduleBlock[];   // 오늘의 블록들
+  offline?: boolean;         // 클라우드를 못 읽어 캐시를 보여주는 중인지
+  lastSyncedAt?: number | null; // 캐시를 만든 시각(ms)
 }
 
-export function WidgetBody({ todayIdx, nowMin, blocks }: Props) {
+// 캐시가 언제 것인지 짧게 표시한다. 오늘이면 "14:20 기준", 어제 이전이면 "7/12 기준".
+// 창이 작아 문구가 길면 줄이 넘치므로 최대한 짧게 만든다.
+function formatSyncedAt(savedAt: number): string {
+  const saved = new Date(savedAt);
+  const isToday = new Date().toDateString() === saved.toDateString();
+
+  if (isToday) {
+    const hh = String(saved.getHours()).padStart(2, "0");
+    const mm = String(saved.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm} 기준`;
+  }
+  return `${saved.getMonth() + 1}/${saved.getDate()} 기준`;
+}
+
+export function WidgetBody({
+  todayIdx,
+  nowMin,
+  blocks,
+  offline = false,
+  lastSyncedAt = null,
+}: Props) {
   const current = blocks.find((b) => isNowInBlock(nowMin, b.start, b.end)) ?? null;
 
   // "다음 일정" = 아직 시작하지 않은 블록. 시작 시각이 빠른 순으로 앞에서 몇 개만.
@@ -35,6 +57,15 @@ export function WidgetBody({ todayIdx, nowMin, blocks }: Props) {
       {/* 상단: 요일 + 현재 시각. Tauri 에서는 이 영역을 잡고 창을 옮긴다. */}
       <header className="widget-head" data-tauri-drag-region>
         <span className="widget-day">{WEEKDAYS[todayIdx]}요일</span>
+
+        {/* 오프라인이면 지금 보이는 게 "옛날 일정"일 수 있음을 알려준다.
+            숨기면 사용자가 이미 지난 시간표를 최신인 줄 알고 믿게 된다. */}
+        {offline && (
+          <span className="widget-offline" title="인터넷에 연결되지 않아 저장된 일정을 보여주는 중입니다">
+            오프라인{lastSyncedAt ? ` · ${formatSyncedAt(lastSyncedAt)}` : ""}
+          </span>
+        )}
+
         <span className="widget-clock">{clock}</span>
       </header>
 

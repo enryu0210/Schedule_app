@@ -13,6 +13,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseEnabled } from "../lib/supabaseClient";
+import { clearWidgetCache } from "../lib/widgetCache";
 
 interface AuthContextValue {
   user: User | null;
@@ -78,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     if (!supabase) return;
+    // 로그아웃하면 위젯 오프라인 캐시도 함께 지운다.
+    // 공용 PC 에서 계정을 바꿨을 때 이전 사용자의 일정이 디스크에 남아 있지 않게 하기 위함이다.
+    const userId = session?.user?.id;
+    if (userId) clearWidgetCache(userId);
+
     await supabase.auth.signOut();
   }
 

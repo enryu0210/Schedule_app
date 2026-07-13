@@ -13,7 +13,7 @@ import { WidgetBody } from "./WidgetBody";
 
 export function WidgetView() {
   const { user, loading, signInWithKakao } = useAuth();
-  const { presets, selectedPresetId, loaded } = useWidgetPresets();
+  const { presets, selectedPresetId, loaded, offline, lastSyncedAt } = useWidgetPresets();
   const now = useNow(30000);
 
   // 1) 로그인 확인 중 / 데이터 로딩 중
@@ -40,6 +40,17 @@ export function WidgetView() {
     );
   }
 
+  // 3) 오프라인인데 보여줄 캐시조차 없는 경우 (예: 새 PC 에 설치하자마자 인터넷이 끊김).
+  //    이때 빈 시간표를 그리면 "일정이 없다"는 오해를 준다 — 못 읽었다고 분명히 알린다.
+  if (offline && presets.length === 0) {
+    return (
+      <div className="widget widget-center">
+        <p className="widget-empty">일정을 불러오지 못했어요</p>
+        <p className="widget-empty widget-hint">인터넷 연결을 확인해 주세요</p>
+      </div>
+    );
+  }
+
   // 선택된 프리셋이 없으면(예: 삭제됨) 첫 번째 프리셋으로 대체한다.
   const preset = presets.find((p) => p.id === selectedPresetId) ?? presets[0] ?? null;
 
@@ -47,5 +58,13 @@ export function WidgetView() {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const blocks = preset?.days[todayIdx]?.blocks ?? [];
 
-  return <WidgetBody todayIdx={todayIdx} nowMin={nowMin} blocks={blocks} />;
+  return (
+    <WidgetBody
+      todayIdx={todayIdx}
+      nowMin={nowMin}
+      blocks={blocks}
+      offline={offline}
+      lastSyncedAt={lastSyncedAt}
+    />
+  );
 }

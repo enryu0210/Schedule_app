@@ -466,6 +466,24 @@
 .widget-day { font-size: 12px; color: var(--text-secondary); }
 .widget-clock { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
 
+/* 오프라인 표시 — 요일과 시계 사이에 조용히 끼어든다.
+   경고처럼 크게 띄우면 위젯의 주인공(현재 일정)을 가리므로 최대한 작게 둔다. */
+.widget-offline {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--neutral-fill);
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  /* 창이 좁을 때 이 배지가 요일/시계를 밀어내지 않도록 먼저 줄어들게 한다. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* 오프라인인데 캐시조차 없을 때의 안내 두 번째 줄 */
+.widget-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
 /* 지금 진행 중인 일정 — 위젯의 주인공이라 가장 크게 */
 .widget-now {
   border-radius: var(--radius-sm);
