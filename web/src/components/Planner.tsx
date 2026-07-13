@@ -197,6 +197,35 @@ export function Planner() {
     setShowBlockEditor(true);
   }
 
+  // 그래프 뷰에서 블록을 드래그해 옮기거나 길이를 바꿨을 때.
+  // 요일이 바뀔 수 있으므로(가로 드래그) 원래 요일에서 빼고 옮겨간 요일에 넣는다.
+  function handleMoveBlock(
+    fromDayIdx: number,
+    blockId: string,
+    toDayIdx: number,
+    start: string,
+    end: string
+  ) {
+    setPresets((prev) =>
+      prev.map((preset) => {
+        if (preset.id !== currentPreset.id) return preset;
+
+        // 각 요일의 blocks 배열을 새로 만들어(불변성) 옮기는 작업을 한다.
+        const days = preset.days.map((d) => ({ ...d, blocks: [...d.blocks] }));
+        const source = days[fromDayIdx];
+        const idx = source.blocks.findIndex((b) => b.id === blockId);
+        if (idx === -1) return preset; // 방어: 이미 사라진 블록
+
+        const [block] = source.blocks.splice(idx, 1);
+        const moved = { ...block, start, end };
+        // fromDay 와 toDay 가 같아도 위에서 이미 빼냈으므로 그대로 다시 넣으면 된다.
+        days[toDayIdx].blocks = sortBlocks([...days[toDayIdx].blocks, moved]);
+
+        return { ...preset, days };
+      })
+    );
+  }
+
   // 그래프 뷰의 빈 칸을 눌렀을 때. 누른 시각을 시작값으로 채운 추가 모달을 연다.
   function handleGridAdd(dayIdx: number, start: string) {
     setSelectedDayIdx(dayIdx);
@@ -303,9 +332,10 @@ export function Planner() {
               nowMin={nowMin}
               onEditBlock={handleGridEdit}
               onAddBlockAt={handleGridAdd}
+              onMoveBlock={handleMoveBlock}
             />
             <div className="grid-hint">
-              빈 칸을 누르면 그 시각으로 새 블록을 추가할 수 있어요.
+              블록을 끌어 옮기고, 위·아래 끝을 잡아 늘려보세요. 빈 칸을 누르면 새 블록이 추가돼요.
             </div>
           </>
         )}

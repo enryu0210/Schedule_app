@@ -3,9 +3,16 @@
  * - 세로축 = 시간, 가로축 = 요일 7개. 일주일 전체를 한 화면에서 본다.
  * - 세로 시간 범위는 프리셋에 실제로 들어있는 블록에 맞춰 자동으로 잡는다(computeGridRange).
  *   00~24시를 늘 그리면 새벽이 텅 비어 블록이 납작해지기 때문이다.
- * - 블록을 누르면 편집, 빈 칸을 누르면 그 시각으로 새 블록 추가가 열린다.
+ * - 조작:
+ *     블록 몸통 드래그  → 시간 이동 + 다른 요일로 이동
+ *     블록 위/아래 손잡이 드래그 → 시작/종료 시각만 늘리고 줄이기
+ *     블록 클릭        → 편집 모달
+ *     빈 칸 클릭       → 그 시각으로 새 블록 추가
+ * - 드래그 중에는 데이터를 건드리지 않고 "미리보기"만 그리다가, 손을 뗄 때 한 번 저장한다.
  */
+import { useRef } from "react";
 import type { DayPlan, ScheduleBlock } from "../types";
+import { useBlockDrag, type DragPreview } from "../hooks/useBlockDrag";
 import {
   computeGridRange,
   expandedEndMinutes,
@@ -13,8 +20,9 @@ import {
   toMinutes,
 } from "../lib/time";
 
-// 1시간이 차지하는 세로 픽셀. CSS 변수로 넘겨 모바일에서 줄일 수 있게 했다.
+// 1시간이 차지하는 세로 픽셀.
 const HOUR_HEIGHT = 52;
+const PX_PER_MIN = HOUR_HEIGHT / 60;
 // 빈 칸을 눌러 추가할 때 시각을 몇 분 단위로 맞출지(스냅).
 const SNAP_MIN = 30;
 
@@ -24,14 +32,52 @@ interface Props {
   nowMin: number;   // 현재 시각(분)
   onEditBlock: (dayIdx: number, block: ScheduleBlock) => void;
   onAddBlockAt: (dayIdx: number, start: string) => void;
+  // 드래그로 블록을 옮기거나 길이를 바꿨을 때(요일이 바뀔 수도 있다).
+  onMoveBlock: (
+    fromDayIdx: number,
+    blockId: string,
+    toDayIdx: number,
+    start: string,
+    end: string
+  ) => void;
 }
 
-export function WeekGrid({ days, todayIdx, nowMin, onEditBlock, onAddBlockAt }: Props) {
+export function WeekGrid({
+  days,
+  todayIdx,
+  nowMin,
+  onEditBlock,
+  onAddBlockAt,
+  onMoveBlock,
+}: Props) {
+  // 시간 범위는 "원래 데이터"로만 계산한다. 드래그 미리보기까지 넣으면
+  // 끌고 가는 동안 그리드 높이가 출렁여서 블록이 커서에서 떨어져 나간다.
   const { startMin, endMin } = computeGridRange(days);
   const spanMin = endMin - startMin;
-  const gridHeight = (spanMin / 60) * HOUR_HEIGHT;
+  const gridHeight = spanMin * PX_PER_MIN;
 
-  // 세로축에 그릴 정시 눈금들 (예: 9, 10, 11 …). 맨 아래 끝 시각은 라벨을 생략한다.
+  // 요일 열의 DOM. 가로 좌표가 어느 요일 위에 있는지 판단하는 데 쓴다.
+  const colRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const { preview, beginDrag, shouldIgnoreClick } = useBlockDrag({
+    pxPerMin: PX_PER_MIN,
+    rangeStart: startMin,
+    rangeEnd: endMin,
+    dayIdxAtX: (clientX) => {
+      const idx = colRefs.current.findIndex((el) => {
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return clientX >= rect.left && clientX <= rect.right;
+      });
+      return idx === -1 ? null : idx;
+    },
+    onCommit: onMoveBlock,
+  });
+
+  // 드래그 중이면 미리보기가 반영된 모습으로 그린다.
+  const shownDays = preview ? applyPreview(days, preview) : days;
+
+  // 세로축에 그릴 정시 눈금들 (맨 아래 끝 시각은 라벨을 생략한다).
   const hourMarks: number[] = [];
   for (let m = startMin; m < endMin; m += 60) hourMarks.push(m);
 
@@ -40,8 +86,7 @@ export function WeekGrid({ days, todayIdx, nowMin, onEditBlock, onAddBlockAt }: 
 
   // "지금" 가로선 위치. 그리드가 자정을 넘겨 이어지는 경우(예: 22시~26시)에는
   // 새벽 시각(예: 01:00 = 60분)을 +24시간 한 값으로 봐야 범위 안에 들어온다.
-  const nowCandidates = [nowMin, nowMin + 1440];
-  const nowInRange = nowCandidates.find((m) => m >= startMin && m <= endMin);
+  const nowInRange = [nowMin, nowMin + 1440].find((m) => m >= startMin && m <= endMin);
 
   return (
     <div className="week-grid" style={{ ["--hour-h" as string]: `${HOUR_HEIGHT}px` }}>
@@ -63,12 +108,15 @@ export function WeekGrid({ days, todayIdx, nowMin, onEditBlock, onAddBlockAt }: 
         ))}
       </div>
 
-      {days.map((day, dayIdx) => (
+      {shownDays.map((day, dayIdx) => (
         <div
           key={day.name}
+          ref={(el) => { colRefs.current[dayIdx] = el; }}
           className={"wg-col" + (dayIdx === todayIdx ? " today" : "")}
           style={{ height: gridHeight }}
           onClick={(e) => {
+            // 드래그가 막 끝난 직후의 click 은 무시한다(빈 칸 추가가 튀어나오지 않게).
+            if (shouldIgnoreClick()) return;
             // 빈 칸 클릭 → 클릭 지점의 시각(30분 단위로 스냅)으로 새 블록 추가.
             const rect = e.currentTarget.getBoundingClientRect();
             const ratio = (e.clientY - rect.top) / rect.height;
@@ -80,27 +128,57 @@ export function WeekGrid({ days, todayIdx, nowMin, onEditBlock, onAddBlockAt }: 
           }}
         >
           {layoutBlocks(day.blocks).map(({ block, lane, laneCount }) => {
-            const top = toTopPercent(toMinutes(block.start));
-            const bottom = toTopPercent(expandedEndMinutes(block.start, block.end));
+            const blockStart = toMinutes(block.start);
+            const blockEnd = expandedEndMinutes(block.start, block.end);
+            const top = toTopPercent(blockStart);
+            const bottom = toTopPercent(blockEnd);
+            const isDragging = preview?.blockId === block.id;
+
             return (
-              <button
+              <div
                 key={block.id}
-                className={"wg-block " + block.color}
+                className={"wg-block " + block.color + (isDragging ? " dragging" : "")}
                 style={{
                   top: `${top}%`,
                   height: `${bottom - top}%`,
-                  // 겹치는 블록은 나란히 반씩 나눠 차지한다.
+                  // 겹치는 블록은 나란히 나눠 차지한다.
                   left: `${(lane / laneCount) * 100}%`,
                   width: `${100 / laneCount}%`,
                 }}
+                onPointerDown={(e) => beginDrag(e, dayIdx, block, "move")}
                 onClick={(e) => {
                   e.stopPropagation(); // 열(빈 칸) 클릭으로 번지지 않게
+                  if (shouldIgnoreClick()) return; // 드래그였으면 편집을 열지 않는다
                   onEditBlock(dayIdx, block);
+                }}
+                // 드래그 때문에 button 이 아닌 div 로 그리므로, 키보드 조작은 직접 열어준다.
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onEditBlock(dayIdx, block);
+                  }
                 }}
                 title={`${block.start}–${block.end} ${block.label}`}
               >
+                {/* 위/아래 손잡이: 길이만 조절한다 */}
+                <div
+                  className="wg-handle top"
+                  onPointerDown={(e) => beginDrag(e, dayIdx, block, "resize-start")}
+                />
                 <span className="wg-block-label">{block.label}</span>
-              </button>
+                {/* 드래그 중에는 지금 몇 시가 되는지 바로 보여준다 */}
+                {isDragging && (
+                  <span className="wg-block-time">
+                    {toHHMM(blockStart % 1440)}–{toHHMM(blockEnd % 1440)}
+                  </span>
+                )}
+                <div
+                  className="wg-handle bottom"
+                  onPointerDown={(e) => beginDrag(e, dayIdx, block, "resize-end")}
+                />
+              </div>
             );
           })}
 
@@ -112,6 +190,29 @@ export function WeekGrid({ days, todayIdx, nowMin, onEditBlock, onAddBlockAt }: 
       ))}
     </div>
   );
+}
+
+/*
+ * 드래그 미리보기를 반영한 요일 배열을 만든다.
+ * 끌고 있는 블록을 원래 요일에서 빼고, 옮겨갈 요일에 새 시각으로 끼워 넣는다.
+ * (원본 데이터는 그대로 두고 화면만 바꾸기 위한 것)
+ */
+function applyPreview(days: DayPlan[], preview: DragPreview): DayPlan[] {
+  const dragged = days
+    .flatMap((day) => day.blocks)
+    .find((b) => b.id === preview.blockId);
+  if (!dragged) return days; // 방어: 못 찾으면 원본 그대로
+
+  const moved: ScheduleBlock = {
+    ...dragged,
+    start: toHHMM(preview.startMin % 1440),
+    end: toHHMM(preview.endMin % 1440),
+  };
+
+  return days.map((day, i) => {
+    const rest = day.blocks.filter((b) => b.id !== preview.blockId);
+    return { ...day, blocks: i === preview.dayIdx ? [...rest, moved] : rest };
+  });
 }
 
 /*

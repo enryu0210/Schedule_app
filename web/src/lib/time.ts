@@ -60,6 +60,9 @@ export interface GridRange {
 
 const DEFAULT_RANGE: GridRange = { startMin: 9 * 60, endMin: 18 * 60 };
 const MIN_SPAN_MIN = 4 * 60; // 블록이 몇 개 없어도 그리드가 너무 납작해지지 않게 최소 4시간 확보
+// 블록 위아래로 남겨두는 여백. 이게 없으면 맨 위/맨 아래 블록이 그리드 끝에 딱 붙어
+// 드래그로 더 이르게/늦게 옮길 자리가 아예 없어진다.
+const PAD_MIN = 60;
 
 /*
  * 일주일 전체 블록을 훑어서 그래프 뷰의 시간 범위를 정한다.
@@ -80,9 +83,12 @@ export function computeGridRange(days: DayPlan[]): GridRange {
   // 블록이 하나도 없는 프리셋이면 무난한 기본 범위(09~18시)를 보여준다.
   if (min === Infinity) return DEFAULT_RANGE;
 
-  // 시각 눈금이 정시에 떨어지도록 위/아래를 각각 정시로 내림/올림한다.
-  const startMin = Math.floor(min / 60) * 60;
-  let endMin = Math.ceil(max / 60) * 60;
+  // 시각 눈금이 정시에 떨어지도록 위/아래를 각각 정시로 내림/올림하고, 여백을 붙인다.
+  const startMin = Math.max(0, Math.floor(min / 60) * 60 - PAD_MIN);
+  let endMin = Math.ceil(max / 60) * 60 + PAD_MIN;
+
+  // 자정을 넘기는 블록이 없다면 24시를 넘겨 그릴 이유가 없다.
+  if (max <= 24 * 60) endMin = Math.min(endMin, 24 * 60);
   if (endMin - startMin < MIN_SPAN_MIN) endMin = startMin + MIN_SPAN_MIN;
 
   return { startMin, endMin };

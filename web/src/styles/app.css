@@ -324,8 +324,39 @@
   position: absolute; border: none; padding: 4px 5px;
   border-radius: 6px; overflow: hidden; text-align: left;
   font-size: 11px; font-weight: 600; line-height: 1.25;
-  /* 열 경계선과 겹치지 않게 살짝 안쪽으로 */
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  cursor: grab;
+  /* 터치로 블록을 끌 때 페이지가 같이 스크롤되지 않게 막는다 (모바일 드래그 필수) */
+  touch-action: none;
+  user-select: none;
+}
+/* 드래그 중인 블록: 살짝 들어올린 느낌 + 커서 변경 */
+.wg-block.dragging {
+  cursor: grabbing; z-index: 3; opacity: 0.9;
+  box-shadow: 0 6px 16px rgba(42, 35, 29, 0.22);
+}
+/* 드래그 중 현재 시각을 블록 안에 표시 */
+.wg-block-time {
+  display: block; margin-top: 2px;
+  font-size: 10px; font-weight: 700; opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 위/아래 끝의 리사이즈 손잡이. 보이지 않지만 잡을 수 있는 얇은 띠. */
+.wg-handle {
+  position: absolute; left: 0; right: 0; height: 7px;
+  cursor: ns-resize; touch-action: none;
+}
+.wg-handle.top { top: 0; }
+.wg-handle.bottom { bottom: 0; }
+/* 마우스를 올리면 잡을 곳이 있다는 걸 옅은 선으로 알려준다 */
+@media (hover: hover) {
+  .wg-block:hover .wg-handle::after {
+    content: ""; position: absolute; left: 25%; right: 25%; height: 2px;
+    border-radius: 2px; background: currentColor; opacity: 0.35;
+  }
+  .wg-handle.top::after { top: 2px; }
+  .wg-handle.bottom::after { bottom: 2px; }
 }
 .wg-block-label {
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
