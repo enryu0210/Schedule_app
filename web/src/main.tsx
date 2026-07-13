@@ -4,6 +4,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { AuthProvider } from "./hooks/useAuth";
 import "./styles/tokens.css";
 import "./styles/app.css";
 
@@ -15,6 +16,9 @@ if (!rootEl) {
 
 createRoot(rootEl).render(
   <StrictMode>
-    <App />
+    {/* AuthProvider 로 앱 전체를 감싸 어디서든 로그인 상태를 쓸 수 있게 한다. */}
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>
 );

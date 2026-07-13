@@ -5,23 +5,23 @@
  *   presets(전체) → 선택된 preset → 선택된 요일(day) → 블록들
  *   상태가 바뀔 때마다 localStorage 에 자동 저장(useEffect).
  */
-import { useEffect, useMemo, useState } from "react";
-import type { Preset, ScheduleBlock } from "./types";
-import { loadState, saveState } from "./lib/storage";
+import { useState } from "react";
+import type { ScheduleBlock } from "./types";
 import { createEmptyPreset } from "./data/defaultPreset";
 import { jsDayToMondayIndex, toMinutes } from "./lib/time";
 import { useNow } from "./hooks/useNow";
+import { usePresetStore } from "./hooks/usePresetStore";
 import { PresetBar } from "./components/PresetBar";
 import { DayTabs } from "./components/DayTabs";
 import { ScheduleCard } from "./components/ScheduleCard";
 import { BlockEditor } from "./components/BlockEditor";
 import { NameDialog } from "./components/NameDialog";
+import { AuthBar } from "./components/AuthBar";
 
 export default function App() {
-  // 최초 1회 localStorage 에서 상태를 읽어온다.
-  const initial = useMemo(() => loadState(), []);
-  const [presets, setPresets] = useState<Preset[]>(initial.presets);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(initial.selectedPresetId);
+  // 프리셋 저장소(로컬/클라우드 자동 분기). 저장 로직은 훅 안에서 처리된다.
+  const { presets, setPresets, selectedPresetId, setSelectedPresetId, syncing } =
+    usePresetStore();
 
   // 현재 시각(30초마다 갱신) → 오늘 요일 / 지금 할 일 하이라이트에 사용.
   const now = useNow();
@@ -36,11 +36,6 @@ export default function App() {
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
   const [showBlockEditor, setShowBlockEditor] = useState(false);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
-
-  // 상태가 바뀔 때마다 저장. (로컬 우선 저장 지점)
-  useEffect(() => {
-    saveState(presets, selectedPresetId);
-  }, [presets, selectedPresetId]);
 
   // 현재 선택된 프리셋. (없을 경우 방어적으로 첫 번째 사용)
   const currentPreset = presets.find((p) => p.id === selectedPresetId) ?? presets[0];
@@ -103,9 +98,17 @@ export default function App() {
 
   return (
     <div className="wrap">
+      {/* 상단 로그인 바 (Supabase 미설정 시 자동으로 숨겨짐) */}
+      <div className="auth-row">
+        <AuthBar />
+      </div>
+
       <div className="top">
         <h1>{currentPreset.label} 주간 계획표</h1>
-        <div className="clock">{clockText}</div>
+        <div className="clock">
+          {syncing && <span className="sync-tag">동기화 중…</span>}
+          {clockText}
+        </div>
       </div>
 
       <PresetBar
