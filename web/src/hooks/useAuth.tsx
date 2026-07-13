@@ -57,16 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       alert("클라우드 기능이 아직 설정되지 않았습니다. (Supabase 키 필요)");
       return;
     }
+    // 참고: Supabase(GoTrue)의 카카오 기본 요청 scope는
+    // "account_email profile_image profile_nickname" 로 고정되어 있어
+    // 클라이언트에서 scopes 를 지정해도 "제거"는 안 되고 덧붙기만 한다.
+    // 따라서 이메일/프로필사진 동의항목은 카카오 콘솔에서 사용 가능하게 열어줘야 한다.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
-      options: {
-        redirectTo: window.location.origin,
-        // 카카오의 이메일(account_email)·프로필사진(profile_image) 동의항목은
-        // 비즈니스 앱 검수를 받아야 사용할 수 있다. 검수 전에 이들을 요청하면
-        // KOE205(동의항목 불일치) 오류가 난다.
-        // 앱에서 실제로 필요한 건 표시용 '닉네임'뿐이므로 그것만 요청한다.
-        scopes: "profile_nickname",
-      },
+      options: { redirectTo: window.location.origin },
     });
     if (error) {
       console.error("[Auth] 카카오 로그인 실패", error);
