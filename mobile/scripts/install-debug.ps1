@@ -1,4 +1,4 @@
-# 폰에 디버그 APK 를 빌드해서 설치한다. (PowerShell 에서 실행)
+﻿# 폰에 디버그 APK 를 빌드해서 설치한다. (PowerShell 에서 실행)
 #
 #   .\mobile\scripts\install-debug.ps1            # 웹 재빌드 없이 설치만
 #   .\mobile\scripts\install-debug.ps1 -Sync      # 웹 코드를 고쳤을 때 (web/dist 를 다시 번들)

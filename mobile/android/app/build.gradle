@@ -1,5 +1,25 @@
 apply plugin: 'com.android.application'
 
+/*
+ * 릴리스 서명 키는 **저장소 밖**(홈 디렉터리)에 둔다.
+ *
+ *   ~/.ilgongbang/android-keystore.properties  ← 키 위치와 비밀번호
+ *   ~/.ilgongbang/ilgongbang.jks               ← 키스토어
+ *
+ * 왜 저장소에 넣지 않나: 키가 커밋되면 누구나 우리 앱인 척하는 APK 를 만들 수 있다.
+ * 왜 중요한가: 안드로이드는 **같은 키로 서명된 APK 만 업데이트로 인정한다.**
+ *             키를 잃어버리면 기존 사용자는 앱을 지우고 새로 깔아야 한다(데이터도 날아간다).
+ *             → 반드시 백업할 것. 만드는 법은 mobile/scripts/make-keystore.ps1
+ *
+ * 키가 없는 PC 에서도 디버그 빌드는 그대로 되게, 없으면 서명 설정을 조용히 건너뛴다.
+ */
+def keystorePropsFile = file("${System.properties['user.home']}/.ilgongbang/android-keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+def hasSigningKey = keystoreProps.containsKey('storeFile')
+
 android {
     namespace "com.ilgongbang.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +27,10 @@ android {
         applicationId "com.ilgongbang.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+        // versionCode 는 "업데이트인지" 판단하는 유일한 기준이라 릴리스마다 반드시 올려야 한다.
+        // (versionName 은 사람이 읽는 이름일 뿐, 시스템은 보지 않는다)
         versionCode 1
-        versionName "1.0"
+        versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +38,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasSigningKey) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // 키가 없으면 서명 없이 빌드된다(설치 불가). 스크립트가 먼저 막아준다.
+            if (hasSigningKey) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

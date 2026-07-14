@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import type { Preset } from "../types";
+import { NoticeToggle } from "./NoticeToggle";
 
 interface Props {
   presets: Preset[];
@@ -113,6 +114,9 @@ export function PresetSidebar({
         <button className="btn sidebar-add" onClick={onAdd}>
           + 새 프리셋
         </button>
+
+        {/* 상시 알림은 지금 보고 있는 프리셋을 기준으로 뜬다 (안드로이드 앱에서만 보임) */}
+        <NoticeToggle preset={presets.find((p) => p.id === selectedId) ?? null} />
       </aside>
     </>
   );

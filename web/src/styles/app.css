@@ -300,6 +300,34 @@
   .auth-signout, .kakao-login { white-space: nowrap; flex-shrink: 0; }
 }
 
+/* ── 상시 알림 스위치 (안드로이드 앱에서만 보인다) ───────────── */
+.notice-toggle { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.notice-switch {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--card);
+  color: var(--text); text-align: left;
+}
+.notice-switch-label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 600; }
+.notice-switch-label small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+/* 스위치 손잡이 — 켜지면 트랙이 강조색으로 차고 손잡이가 오른쪽으로 간다 */
+.notice-switch-track {
+  flex-shrink: 0; position: relative; width: 40px; height: 22px;
+  border-radius: 999px; background: var(--border); transition: background .16s;
+}
+.notice-switch-knob {
+  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; transition: transform .16s;
+  box-shadow: 0 1px 3px rgba(42, 35, 29, 0.25);
+}
+.notice-switch.on .notice-switch-track { background: var(--accent); }
+.notice-switch.on .notice-switch-knob { transform: translateX(18px); }
+
+.notice-denied {
+  margin: 8px 2px 0; font-size: 11px; line-height: 1.5; color: #b3261e;
+}
+
 /* ── 보기 방식 토글 (목록 / 시간표) ────────────────────────── */
 .view-row {
   display: flex; justify-content: flex-end; align-items: center;
