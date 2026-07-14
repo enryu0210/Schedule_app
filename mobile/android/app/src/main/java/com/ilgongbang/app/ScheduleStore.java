@@ -28,6 +28,12 @@ public class ScheduleStore {
     private static final String KEY_WEEK = "week_json";
     private static final String KEY_ENABLED = "notice_enabled";
     /**
+     * 지금 보고 있는 시간표의 이름(개인 프리셋명 또는 조직명).
+     * 계산에는 쓰이지 않고 **위젯 머리글에만** 쓴다 — 위젯이 옛 시간표를 붙들고 있는지
+     * 사용자가 눈으로 알아챌 수 있어야 하기 때문이다.
+     */
+    private static final String KEY_SOURCE = "week_source";
+    /**
      * "처음 한 번" 을 이미 했는지. 알림은 기본으로 켜주되, 사용자가 끈 것을 다시 켜서는 안 된다.
      * 이 표시가 없으면 "껐는데 다음에 열면 또 켜져 있는" 앱이 된다.
      *
@@ -58,8 +64,27 @@ public class ScheduleStore {
         return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    public static void saveWeek(Context ctx, String weekJson) {
-        prefs(ctx).edit().putString(KEY_WEEK, weekJson).apply();
+    public static void saveWeek(Context ctx, String weekJson, String source) {
+        prefs(ctx).edit()
+                .putString(KEY_WEEK, weekJson)
+                .putString(KEY_SOURCE, source == null ? "" : source)
+                .apply();
+    }
+
+    /**
+     * 웹에서 시간표를 한 번이라도 받은 적이 있는가.
+     *
+     * "아직 앱을 안 열어봤다"와 "시간표가 비어 있다"는 위젯에서 **다르게 안내해야 한다.**
+     * 전자는 앱을 열어 로그인하면 되고, 후자는 일정을 만들어야 한다.
+     */
+    public static boolean hasWeek(Context ctx) {
+        return prefs(ctx).getString(KEY_WEEK, null) != null;
+    }
+
+    /** 위젯 머리글에 띄울 이름. 못 받았으면 앱 이름으로 대체한다. */
+    public static String getSource(Context ctx) {
+        String source = prefs(ctx).getString(KEY_SOURCE, "");
+        return source.isEmpty() ? "일정공방" : source;
     }
 
     public static void setEnabled(Context ctx, boolean enabled) {

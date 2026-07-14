@@ -1,21 +1,60 @@
 /*
- * 프리셋 저장소 훅 (클라우드 전용).
+ * 프리셋 저장소 (클라우드 전용) + Provider.
  *
- * 정책 변경:
+ * 정책:
  *   - 이 앱은 "로그인 후 사용"이 원칙이다. 그래서 로그인한 사용자의 데이터를
  *     Supabase(클라우드)에서만 읽고 쓴다.
  *   - 신규 사용자는 저장된 프리셋이 없으므로 "빈 상태"로 시작한다.
- *     (예전처럼 '방학' 기본 프리셋을 자동으로 만들지 않는다.)
  *
  * 주의: 클라우드 로딩이 끝나기 전(loaded=false)에는 저장하지 않는다.
  *       빈 초기값으로 클라우드를 덮어쓰는 사고를 막기 위함이다.
+ *
+ * 왜 Context 인가 (useOrg 와 같은 이유):
+ *   예전에는 Planner 와 OrgWorkspace 가 이 훅을 각자 불렀다. 둘은 동시에 뜨지 않아서
+ *   문제가 드러나지 않았지만, **상시 알림처럼 화면 밖에서 프리셋을 읽어야 하는 곳**이
+ *   생기는 순간 저장소가 두 벌이 된다 — 자동 저장 effect 도 두 벌이라 같은 데이터를
+ *   서로 덮어쓰게 된다. 인스턴스는 앱 전체에 하나여야 한다.
  */
-import { useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import type { Preset } from "../types";
 import { loadCloudPresets, saveCloudPresets } from "../lib/cloudStorage";
 import { useAuth } from "./useAuth";
 
-export function usePresetStore() {
+interface PresetStore {
+  presets: Preset[];
+  setPresets: Dispatch<SetStateAction<Preset[]>>;
+  selectedPresetId: string | null;
+  setSelectedPresetId: Dispatch<SetStateAction<string | null>>;
+  loaded: boolean;
+}
+
+const PresetContext = createContext<PresetStore | null>(null);
+
+export function PresetProvider({ children }: { children: ReactNode }) {
+  const value = usePresetState();
+  return <PresetContext.Provider value={value}>{children}</PresetContext.Provider>;
+}
+
+/** 앱 어디서나 개인 프리셋을 꺼내 쓰는 훅. */
+export function usePresets(): PresetStore {
+  const ctx = useContext(PresetContext);
+  if (!ctx) {
+    throw new Error("usePresets 는 <PresetProvider> 안에서만 사용할 수 있습니다.");
+  }
+  return ctx;
+}
+
+// 실제 상태 로직. Provider 안에서 딱 한 번만 돈다.
+function usePresetState(): PresetStore {
   const { user } = useAuth();
 
   const [presets, setPresets] = useState<Preset[]>([]);

@@ -32,7 +32,12 @@ import androidx.core.app.NotificationManagerCompat;
 )
 public class ScheduleNoticePlugin extends Plugin {
 
-    /** 웹이 주간 시간표를 넘겨준다. 알림이 켜져 있으면 즉시 다시 그린다. */
+    /**
+     * 웹이 "지금 보고 있는 시간표"를 넘겨준다. 알림과 홈 위젯을 즉시 다시 그린다.
+     *
+     * source 는 그 시간표의 이름(개인 프리셋명 / 조직명)이다. 계산에는 안 쓰이고
+     * 위젯 머리글에만 뜬다 — 위젯이 옛 시간표를 붙들고 있는지 눈으로 알 수 있어야 한다.
+     */
     @PluginMethod
     public void sync(PluginCall call) {
         String week = call.getString("week");
@@ -41,8 +46,9 @@ public class ScheduleNoticePlugin extends Plugin {
             return;
         }
 
-        ScheduleStore.saveWeek(getContext(), week);
+        ScheduleStore.saveWeek(getContext(), week, call.getString("source", ""));
         ScheduleNotifier.refresh(getContext());
+        ScheduleWidget.refresh(getContext());
         ScheduleAlarm.scheduleNext(getContext());
         call.resolve();
     }
@@ -82,8 +88,10 @@ public class ScheduleNoticePlugin extends Plugin {
 
         if (!enabled) {
             ScheduleStore.setEnabled(getContext(), false);
-            ScheduleAlarm.cancel(getContext());
             ScheduleNotifier.cancel(getContext());
+            // 알람을 그냥 취소하면 안 된다 — 홈 위젯이 놓여 있으면 위젯 갱신이 함께 멈춘다.
+            // scheduleNext 가 "알림·위젯 둘 다 없을 때만" 알아서 취소한다.
+            ScheduleAlarm.scheduleNext(getContext());
             call.resolve(result(false));
             return;
         }

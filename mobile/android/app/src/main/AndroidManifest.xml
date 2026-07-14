@@ -51,6 +51,25 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          홈 화면 위젯 ("지금 하는 일정").
+
+          exported=true 여야 한다 — 위젯은 **런처(다른 앱)가** 우리 리시버를 부르는 구조라
+          false 로 두면 위젯 목록에 뜨긴 해도 갱신 방송을 못 받는다.
+          받는 것은 시스템의 위젯 방송뿐이라 노출해도 위험하지 않다.
+        -->
+        <receiver
+            android:name=".ScheduleWidget"
+            android:label="@string/widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_schedule_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

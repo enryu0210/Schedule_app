@@ -4,4 +4,7 @@
     <string name="title_activity_main">일정공방</string>
     <string name="package_name">com.ilgongbang.app</string>
     <string name="custom_url_scheme">com.ilgongbang.app</string>
+    <!-- 홈 위젯: 런처의 위젯 목록에 뜨는 이름과 설명 -->
+    <string name="widget_label">지금 하는 일정</string>
+    <string name="widget_description">지금 진행 중인 일정과 다음 일정을 홈 화면에 표시합니다.</string>
 </resources>

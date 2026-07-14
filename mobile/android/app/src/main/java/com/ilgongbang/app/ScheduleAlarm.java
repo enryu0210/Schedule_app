@@ -9,13 +9,15 @@ import android.os.Build;
 import java.util.List;
 
 /**
- * 다음에 알림을 다시 그려야 할 시각에 알람을 걸어둔다.
+ * 다음에 화면(상시 알림 + 홈 위젯)을 다시 그려야 할 시각에 알람을 걸어둔다.
  *
  * 왜 알람인가:
  *   상시 알림이라고 해서 1분마다 깨울 필요는 없다. 내용이 바뀌는 순간은 정해져 있다 —
  *   지금 일정이 끝날 때, 또는 다음 일정이 시작할 때. 그때만 깨우면 배터리를 거의 안 쓴다.
+ *   홈 위젯도 같은 사슬에 얹었다. 위젯의 자체 갱신 주기(updatePeriodMillis)는 최소 30분이라
+ *   "지금 하는 일정"에는 너무 느리고, 따로 굴리면 알림과 위젯의 내용이 서로 어긋난다.
  *
- * 다만 알림에 "몇 분 남음"과 진행률 막대가 있어서, 경계까지 한없이 기다리면 숫자가 낡는다.
+ * 다만 "몇 분 남음"과 진행률 막대가 있어서, 경계까지 한없이 기다리면 숫자가 낡는다.
  * 그래서 최대 간격을 15분으로 묶는다(정확도와 배터리의 타협점).
  */
 public class ScheduleAlarm {
@@ -29,8 +31,10 @@ public class ScheduleAlarm {
 
         PendingIntent pi = pendingIntent(ctx);
 
-        // 알림이 꺼져 있으면 알람도 걸어둘 이유가 없다.
-        if (!ScheduleStore.isEnabled(ctx)) {
+        // 알람 사슬은 **알림과 홈 위젯이 함께** 쓴다.
+        // 둘 다 없을 때만 끈다 — 예전엔 알림 기준으로만 판단해서, 알림을 끈 사용자의
+        // 위젯이 영원히 멈춘 화면을 붙들고 있었다.
+        if (!ScheduleStore.isEnabled(ctx) && !ScheduleWidget.hasWidgets(ctx)) {
             am.cancel(pi);
             return;
         }

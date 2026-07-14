@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  홈 위젯 등록 정보.
+
+  updatePeriodMillis 를 0 으로 둔 것이 핵심이다:
+    시스템의 주기 갱신은 **최소 30분**이라 "지금 하는 일정"에는 너무 느리다.
+    (10시 정각에 시작한 일정이 10시 25분에야 위젯에 뜨면 위젯을 볼 이유가 없다)
+    대신 알림과 같은 AlarmManager 사슬(ScheduleAlarm)이 일정 경계마다 깨워서 갱신한다.
+    → 위젯과 알림이 같은 시각에, 같은 내용으로 함께 바뀐다.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="70dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_schedule"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description" />

@@ -11,7 +11,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { Preset } from "../types";
 
 interface ScheduleNoticePlugin {
-  sync(options: { week: string }): Promise<void>;
+  sync(options: { week: string; source: string }): Promise<void>;
   setEnabled(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
   isEnabled(): Promise<{ enabled: boolean }>;
   initDefault(): Promise<{ enabled: boolean }>;
@@ -38,11 +38,27 @@ function toNativeWeek(preset: Preset): string {
   return JSON.stringify(week);
 }
 
-/** 지금 보고 있는 시간표를 네이티브에 넘긴다. (실패해도 앱은 계속 돌아야 한다) */
-export async function syncNotice(preset: Preset | null): Promise<void> {
-  if (!isNoticeSupported() || !preset) return;
+/** 보여줄 시간표가 없을 때 넘기는 빈 주(7일 모두 비어 있음). */
+const EMPTY_WEEK = JSON.stringify([[], [], [], [], [], [], []]);
+
+/**
+ * 지금 보고 있는 시간표를 네이티브에 넘긴다. (실패해도 앱은 계속 돌아야 한다)
+ *
+ * preset 이 null 이면 **빈 시간표를 넘긴다.** 그냥 넘기지 않고 돌아가면
+ * 프리셋을 전부 지웠거나 조직에 배포된 시간표가 없을 때
+ * 알림이 옛 시간표를 그대로 붙들고 있게 된다(실제로 그랬다).
+ */
+export async function syncNotice(
+  preset: Preset | null,
+  source = ""
+): Promise<void> {
+  if (!isNoticeSupported()) return;
   try {
-    await ScheduleNotice.sync({ week: toNativeWeek(preset) });
+    await ScheduleNotice.sync({
+      week: preset ? toNativeWeek(preset) : EMPTY_WEEK,
+      // 홈 위젯 머리글에 "무엇을 보고 있는지"를 띄우기 위한 이름(개인 프리셋명 / 조직명).
+      source,
+    });
   } catch (e) {
     // 알림이 안 되는 것은 앱을 못 쓰게 만들 정도의 문제가 아니다 → 로그만 남긴다.
     console.warn("상시 알림 동기화 실패", e);

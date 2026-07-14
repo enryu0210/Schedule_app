@@ -9,7 +9,9 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
+import { NoticeProvider } from "./hooks/useScheduleNotice";
 import { OrgProvider, useOrg } from "./hooks/useOrg";
+import { PresetProvider } from "./hooks/usePresetStore";
 import { LoginScreen } from "./components/LoginScreen";
 import { OrgDialog } from "./components/OrgDialog";
 import { OrgWorkspace } from "./components/OrgWorkspace";
@@ -38,10 +40,19 @@ export default function App() {
   if (!user) return <LoginScreen />;
 
   // 3) 로그인 완료 → 작업 공간(개인/조직).
-  //    조직 상태는 상단바(전환 버튼)와 조직 화면이 함께 써야 하므로 Provider 로 감싼다.
+  //    셋 다 Provider 인 이유:
+  //    - OrgProvider    : 상단바(전환 버튼)와 조직 화면이 같은 상태를 봐야 한다
+  //    - PresetProvider : 개인 프리셋 저장소는 앱 전체에 **하나**여야 한다(자동 저장이 두 벌이 되면 서로 덮어쓴다)
+  //    - NoticeProvider : 상시 알림 동기화는 **화면과 무관하게** 항상 돌아야 한다.
+  //                       (개인/조직 어느 화면이든, 로딩·빈 상태이든 "지금 보고 있는 시간표"를 따라가야 하므로)
+  //    순서 주의: NoticeProvider 는 두 저장소를 모두 읽으므로 가장 안쪽이어야 한다.
   return (
     <OrgProvider>
-      <Workspace />
+      <PresetProvider>
+        <NoticeProvider>
+          <Workspace />
+        </NoticeProvider>
+      </PresetProvider>
     </OrgProvider>
   );
 }

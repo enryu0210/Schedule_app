@@ -16,10 +16,11 @@ import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useNow } from "../hooks/useNow";
 import { useOrg } from "../hooks/useOrg";
-import { usePresetStore } from "../hooks/usePresetStore";
+import { usePresets } from "../hooks/usePresetStore";
 import { jsDayToMondayIndex } from "../lib/time";
 import { AuthBar } from "./AuthBar";
 import { InviteDialog } from "./InviteDialog";
+import { NoticeToggle } from "./NoticeToggle";
 import { OrgPlanEditor } from "./OrgPlanEditor";
 import { TeamOverlapGrid } from "./TeamOverlapGrid";
 import { WeekGrid } from "./WeekGrid";
@@ -54,7 +55,7 @@ export function OrgWorkspace({ onAddOrg }: Props) {
   } = useOrg();
 
   // 공유/배포할 후보는 "내 개인 프리셋"이다. 읽기 용도로만 쓴다(여기서 개인 프리셋을 고치지 않는다).
-  const { presets, loaded: presetsLoaded } = usePresetStore();
+  const { presets, loaded: presetsLoaded } = usePresets();
 
   const now = useNow();
   const todayIdx = jsDayToMondayIndex(now.getDay());
@@ -271,6 +272,11 @@ export function OrgWorkspace({ onAddOrg }: Props) {
           </>
         )}
       </section>
+
+      {/* 조직을 보는 동안에는 알림도 **조직 시간표**를 띄운다.
+          예전엔 이 스위치가 개인 화면에만 있어서, 조직으로 넘어와도 알림은
+          개인 프리셋을 계속 보여줬다(전환이 안 되던 버그). */}
+      <NoticeToggle />
 
       {/* --- 탭 --- */}
       <div className="org-tabs">

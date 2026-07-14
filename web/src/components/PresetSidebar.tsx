@@ -115,8 +115,9 @@ export function PresetSidebar({
           + 새 프리셋
         </button>
 
-        {/* 상시 알림은 지금 보고 있는 프리셋을 기준으로 뜬다 (안드로이드 앱에서만 보임) */}
-        <NoticeToggle preset={presets.find((p) => p.id === selectedId) ?? null} />
+        {/* 상시 알림은 지금 보고 있는 시간표를 따라간다 (안드로이드 앱에서만 보임).
+            무엇을 넘길지는 NoticeProvider 가 스스로 판단하므로 여기서 프리셋을 건네지 않는다. */}
+        <NoticeToggle />
       </aside>
     </>
   );
