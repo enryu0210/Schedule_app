@@ -17,7 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNow } from "../hooks/useNow";
 import { useOrg } from "../hooks/useOrg";
 import { usePresetStore } from "../hooks/usePresetStore";
-import { shareInviteLink } from "../lib/inviteLink";
+import { buildInviteLink, shareInviteLink } from "../lib/inviteLink";
 import { jsDayToMondayIndex } from "../lib/time";
 import { AuthBar } from "./AuthBar";
 import { OrgPlanEditor } from "./OrgPlanEditor";
@@ -158,29 +158,42 @@ export function OrgWorkspace({ onAddOrg }: Props) {
           </span>
         </h1>
         {isAdmin && (
-          <div className="invite-code">
-            <button
-              className="btn primary"
-              onClick={async () => {
-                const result = await shareInviteLink(
-                  currentOrg.name,
-                  currentOrg.inviteCode
-                );
-                setInviteMsg(
-                  result === "shared"
-                    ? ""
-                    : result === "copied"
-                    ? "초대 링크를 복사했어요. 카카오톡에 붙여넣으세요."
-                    : "복사에 실패했어요. 아래 코드를 직접 알려주세요."
-                );
-              }}
-            >
-              카카오톡으로 초대
-            </button>
-            <span>
-              또는 코드 <code>{currentOrg.inviteCode}</code>
-            </span>
-            {inviteMsg && <span className="invite-msg">{inviteMsg}</span>}
+          <div className="invite-box">
+            <div className="invite-row">
+              <button
+                className="btn primary"
+                onClick={async () => {
+                  const result = await shareInviteLink(
+                    currentOrg.name,
+                    currentOrg.inviteCode
+                  );
+                  // 어떤 결과든 반드시 화면에 말해준다.
+                  // 조용히 끝나는 경로가 있으면 사용자는 버튼이 고장 난 줄 안다(실제로 겪음).
+                  setInviteMsg(
+                    result === "shared"
+                      ? "공유했어요."
+                      : result === "cancelled"
+                      ? "공유를 취소했어요."
+                      : result === "copied"
+                      ? "초대 링크를 복사했어요. 카카오톡에 붙여넣으세요."
+                      : "복사에 실패했어요. 아래 링크를 직접 복사해 주세요."
+                  );
+                }}
+              >
+                카카오톡으로 초대
+              </button>
+              {inviteMsg && <span className="invite-msg">{inviteMsg}</span>}
+            </div>
+
+            {/* 링크를 항상 눈에 보이게 둔다.
+                공유·복사가 어떤 이유로든 안 될 때 손으로 복사할 길이 없으면 안 된다. */}
+            <input
+              className="invite-link"
+              readOnly
+              value={buildInviteLink(currentOrg.inviteCode)}
+              onFocus={(e) => e.currentTarget.select()}
+              aria-label="초대 링크"
+            />
           </div>
         )}
       </div>

@@ -853,3 +853,27 @@
   flex: 1;
   min-width: 0;
 }
+
+/* --- 초대 링크 박스 --- */
+.invite-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.invite-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 공유·복사가 안 될 때를 대비해 링크를 항상 보여준다(손으로 복사할 길). */
+.invite-link {
+  width: 100%;
+  max-width: 340px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--gray-fill);
+  color: var(--text-secondary);
+  font-size: 12px;
+}

@@ -38,39 +38,59 @@ export function clearInviteCodeFromUrl(): void {
 }
 
 /**
- * 초대 링크를 공유한다.
+ * 공유 시트를 쓸 만한 기기인가? (= 터치 기기)
+ *
+ * `navigator.share` 존재 여부만으로 판단하면 안 된다(실제로 겪음):
+ *   **PC 크롬에도 navigator.share 가 있다.** 그래서 데스크탑에서 버튼을 누르면
+ *   윈도우 공유 창을 띄우려다 조용히 취소되고, 사용자에겐 **아무 일도 안 일어난 것처럼** 보였다.
+ *   PC 에서 원하는 동작은 공유 시트가 아니라 '복사'다.
+ */
+function prefersShareSheet(): boolean {
+  return (
+    typeof navigator.share === "function" &&
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
+export type ShareResult = "shared" | "cancelled" | "copied" | "failed";
+
+/**
+ * 초대 링크를 공유한다. 폰이면 공유 시트, PC 면 클립보드 복사.
  *
  * 카카오 SDK 를 쓰지 않는 이유:
- *   앱 키 발급/도메인 등록/스크립트 로딩이 붙는데, 폰에서는 Web Share 를 띄우면
+ *   앱 키 발급/도메인 등록/스크립트 로딩이 붙는데, 폰에서 Web Share 를 띄우면
  *   **공유 대상 목록에 카카오톡이 그대로 나온다.** 목적(카톡으로 보내기)은 이미 달성된다.
- *   PC 나 미지원 브라우저에서는 클립보드 복사로 떨어진다.
  *
- * @returns 어떻게 처리됐는지 (화면에 알려주기 위함)
+ * @returns 어떻게 처리됐는지. 부르는 쪽은 **모든 결과에 대해 화면에 무언가를 보여줘야 한다.**
+ *   조용히 끝나는 경로가 있으면 사용자는 버튼이 고장 난 줄 안다.
  */
 export async function shareInviteLink(
   orgName: string,
   inviteCode: string
-): Promise<"shared" | "copied" | "failed"> {
+): Promise<ShareResult> {
   const link = buildInviteLink(inviteCode);
   const text = `[일정공방] '${orgName}' 조직에 초대합니다.\n아래 링크로 참여해주세요.`;
 
   // 1) 폰: 공유 시트 (여기에 카카오톡이 뜬다)
-  if (navigator.share) {
+  if (prefersShareSheet()) {
     try {
       await navigator.share({ title: "일정공방 조직 초대", text, url: link });
       return "shared";
     } catch (e) {
-      // 사용자가 공유 시트를 닫은 것도 여기로 온다 — 실패가 아니므로 복사로 넘어가지 않는다.
-      if (e instanceof Error && e.name === "AbortError") return "shared";
+      // 사용자가 공유 시트를 닫은 경우. 실패가 아니므로 복사로 갈아타지 않는다.
+      if (e instanceof Error && e.name === "AbortError") return "cancelled";
+      console.error("[Org] 공유 시트 실패 — 복사로 대체합니다", e);
       // 그 외 오류는 복사로 대체한다.
     }
   }
 
-  // 2) PC: 클립보드 복사
+  // 2) PC(그리고 공유 시트가 실패한 경우): 클립보드 복사
   try {
     await navigator.clipboard.writeText(`${text}\n${link}`);
     return "copied";
   } catch (e) {
+    // http 로 접속했거나 권한이 막히면 클립보드 API 자체가 없다.
+    // 이때를 위해 화면에 링크를 항상 띄워둔다(손으로 복사할 수 있게).
     console.error("[Org] 초대 링크 복사 실패", e);
     return "failed";
   }
