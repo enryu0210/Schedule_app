@@ -21,6 +21,7 @@ import { ScheduleCard } from "./ScheduleCard";
 import { WeekGrid } from "./WeekGrid";
 import { ViewToggle } from "./ViewToggle";
 import { BlockEditor } from "./BlockEditor";
+import { BlockDetail } from "./BlockDetail";
 import { NameDialog } from "./NameDialog";
 import { AuthBar } from "./AuthBar";
 import { DownloadWidget } from "./DownloadWidget";
@@ -63,6 +64,11 @@ export function Planner({ onAddOrg }: Props) {
   const [showBlockEditor, setShowBlockEditor] = useState(false);
   // 그래프 뷰의 빈 칸을 눌러 추가할 때 미리 채워둘 시작 시각.
   const [editorStart, setEditorStart] = useState<string | undefined>(undefined);
+  // 보기 전용 시간표에서 블록을 눌렀을 때 띄우는 상세(잘린 이름을 끝까지 읽기 위한 것).
+  const [viewingBlock, setViewingBlock] = useState<{
+    dayIdx: number;
+    block: ScheduleBlock;
+  } | null>(null);
   const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null); // 이름 변경 중인 프리셋
   const [sidebarOpen, setSidebarOpen] = useState(false);             // 모바일 드로어 열림 여부
@@ -375,6 +381,7 @@ export function Planner({ onAddOrg }: Props) {
               nowMin={nowMin}
               editable={gridEditing}
               onEditBlock={handleGridEdit}
+              onViewBlock={(dayIdx, block) => setViewingBlock({ dayIdx, block })}
               onAddBlockAt={handleGridAdd}
               onMoveBlock={handleMoveBlock}
             />
@@ -386,6 +393,21 @@ export function Planner({ onAddOrg }: Props) {
           </>
         )}
       </div>
+
+      {viewingBlock && (
+        <BlockDetail
+          block={viewingBlock.block}
+          dayName={currentPreset.days[viewingBlock.dayIdx].name}
+          onClose={() => setViewingBlock(null)}
+          // 상세에서 바로 편집으로. 편집 모드를 함께 켜주지 않으면
+          // 모달을 닫는 순간 다시 잠긴 화면으로 돌아와 사용자가 혼란스러워진다.
+          onEdit={() => {
+            setGridEditing(true);
+            handleGridEdit(viewingBlock.dayIdx, viewingBlock.block);
+            setViewingBlock(null);
+          }}
+        />
+      )}
 
       {showBlockEditor && (
         <BlockEditor

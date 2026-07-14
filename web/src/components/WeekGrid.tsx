@@ -17,6 +17,7 @@
 import { useRef } from "react";
 import type { DayPlan, ScheduleBlock } from "../types";
 import { useBlockDrag, type DragPreview } from "../hooks/useBlockDrag";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
   computeGridRange,
   expandedEndMinutes,
@@ -25,8 +26,10 @@ import {
 } from "../lib/time";
 
 // 1시간이 차지하는 세로 픽셀.
-const HOUR_HEIGHT = 52;
-const PX_PER_MIN = HOUR_HEIGHT / 60;
+// 폰에서는 더 촘촘하게 그린다 — 같은 높이에 하루가 더 많이 들어와야
+// "일주일을 한눈에" 라는 이 뷰의 존재 이유가 산다. (52px 로는 반나절도 안 보였다)
+const HOUR_HEIGHT_DESKTOP = 52;
+const HOUR_HEIGHT_NARROW = 42;
 // 빈 칸을 눌러 추가할 때 시각을 몇 분 단위로 맞출지(스냅).
 const SNAP_MIN = 30;
 
@@ -37,6 +40,9 @@ interface Props {
   // 편집 모드 여부. false 면 보기 전용(드래그·추가·편집 모두 잠긴다).
   editable: boolean;
   onEditBlock: (dayIdx: number, block: ScheduleBlock) => void;
+  // 보기 전용일 때 블록을 눌렀을 때(선택). 좁은 열에서는 이름이 잘리므로
+  // 눌러서 전체를 볼 수 있어야 한다 — 없으면 폰에서 긴 일정 이름을 읽을 방법이 없다.
+  onViewBlock?: (dayIdx: number, block: ScheduleBlock) => void;
   onAddBlockAt: (dayIdx: number, start: string) => void;
   // 드래그로 블록을 옮기거나 길이를 바꿨을 때(요일이 바뀔 수도 있다).
   onMoveBlock: (
@@ -54,20 +60,27 @@ export function WeekGrid({
   nowMin,
   editable,
   onEditBlock,
+  onViewBlock,
   onAddBlockAt,
   onMoveBlock,
 }: Props) {
+  // 좁은 화면(폰)에서는 시간 축을 압축한다. CSS 로는 못 하는데,
+  // 블록 위치와 그리드 높이를 JS 가 픽셀로 계산하기 때문이다.
+  const isNarrow = useMediaQuery("(max-width: 640px)");
+  const hourHeight = isNarrow ? HOUR_HEIGHT_NARROW : HOUR_HEIGHT_DESKTOP;
+  const pxPerMin = hourHeight / 60;
+
   // 시간 범위는 "원래 데이터"로만 계산한다. 드래그 미리보기까지 넣으면
   // 끌고 가는 동안 그리드 높이가 출렁여서 블록이 커서에서 떨어져 나간다.
   const { startMin, endMin } = computeGridRange(days);
   const spanMin = endMin - startMin;
-  const gridHeight = spanMin * PX_PER_MIN;
+  const gridHeight = spanMin * pxPerMin;
 
   // 요일 열의 DOM. 가로 좌표가 어느 요일 위에 있는지 판단하는 데 쓴다.
   const colRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const { preview, beginDrag, shouldIgnoreClick } = useBlockDrag({
-    pxPerMin: PX_PER_MIN,
+    pxPerMin,
     rangeStart: startMin,
     rangeEnd: endMin,
     dayIdxAtX: (clientX) => {
@@ -98,7 +111,7 @@ export function WeekGrid({
   return (
     <div
       className={"week-grid" + (editable ? " editable" : "")}
-      style={{ ["--hour-h" as string]: `${HOUR_HEIGHT}px` }}
+      style={{ ["--hour-h" as string]: `${hourHeight}px` }}
     >
       {/* 헤더: 왼쪽 시간 칸은 비우고, 요일 7개를 나열 */}
       <div className="wg-corner" />
@@ -145,16 +158,31 @@ export function WeekGrid({
             const bottom = toTopPercent(blockEnd);
             const isDragging = preview?.blockId === block.id;
 
+            // 키가 작은 블록(30분짜리 등)은 두 줄을 담을 수 없다.
+            // 그냥 두면 둘째 줄이 반쯤 잘려 글자가 뭉개져 보이므로 한 줄로 줄인다.
+            const heightPx = ((bottom - top) / 100) * gridHeight;
+            const isShort = heightPx < 34;
+
             return (
               <div
                 key={block.id}
-                className={"wg-block " + block.color + (isDragging ? " dragging" : "")}
+                className={
+                  "wg-block " + block.color +
+                  (isDragging ? " dragging" : "") +
+                  // 겹쳐 쌓인 블록(뒤 레인)은 왼쪽에 그림자를 줘서 아래 블록과 구분한다.
+                  (lane > 0 ? " stacked" : "") +
+                  (isShort ? " short" : "")
+                }
                 style={{
                   top: `${top}%`,
                   height: `${bottom - top}%`,
-                  // 겹치는 블록은 나란히 나눠 차지한다.
-                  left: `${(lane / laneCount) * 100}%`,
-                  width: `${100 / laneCount}%`,
+                  // 겹치는 블록은 "계단식"으로 쌓는다 (아래 laneOffset 주석 참고).
+                  left: `${lane * laneOffset(laneCount)}%`,
+                  width: `${100 - lane * laneOffset(laneCount)}%`,
+                  // 뒤 레인일수록 위에 얹힌다.
+                  // 끌고 있는 블록은 항상 맨 위여야 한다 — 인라인 style 이 CSS 의
+                  // z-index 를 이기므로, 여기서 직접 올려주지 않으면 다른 블록 뒤로 숨는다.
+                  zIndex: isDragging ? 99 : lane + 1,
                 }}
                 // 보기 전용일 때는 드래그를 시작조차 하지 않는다.
                 // (여기서 막아야 화면 스크롤이 정상적으로 먹는다)
@@ -163,19 +191,22 @@ export function WeekGrid({
                 }
                 onClick={(e) => {
                   e.stopPropagation(); // 열(빈 칸) 클릭으로 번지지 않게
-                  if (!editable) return;
+                  // 보기 전용이면 '상세 보기'만 연다 (일정은 바뀌지 않는다).
+                  if (!editable) {
+                    onViewBlock?.(dayIdx, block);
+                    return;
+                  }
                   if (shouldIgnoreClick()) return; // 드래그였으면 편집을 열지 않는다
                   onEditBlock(dayIdx, block);
                 }}
                 // 드래그 때문에 button 이 아닌 div 로 그리므로, 키보드 조작은 직접 열어준다.
-                role={editable ? "button" : undefined}
-                tabIndex={editable ? 0 : undefined}
+                role={editable || onViewBlock ? "button" : undefined}
+                tabIndex={editable || onViewBlock ? 0 : undefined}
                 onKeyDown={(e) => {
-                  if (!editable) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onEditBlock(dayIdx, block);
-                  }
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  if (editable) onEditBlock(dayIdx, block);
+                  else onViewBlock?.(dayIdx, block);
                 }}
                 title={`${block.start}–${block.end} ${block.label}`}
               >
@@ -211,6 +242,24 @@ export function WeekGrid({
       ))}
     </div>
   );
+}
+
+/*
+ * 겹친 블록을 "계단식"으로 쌓을 때, 레인 하나가 오른쪽으로 밀리는 정도(%).
+ *
+ * 예전에는 겹친 블록끼리 열 폭을 **똑같이 나눠 가졌다**(2개면 각 50%).
+ * 폰에서는 열 자체가 55px 남짓이라, 2개만 겹쳐도 폭이 27px 로 쪼그라들어
+ * 글자가 세로로 눌리고("우/편") 손가락으로 누르기도 힘들었다.
+ *
+ * 그래서 캘린더 앱들이 쓰는 방식으로 바꿨다: 나눠 갖지 않고, 뒤 블록을 조금씩
+ * 오른쪽으로 밀어 **겹쳐 쌓고** 각자는 열 오른쪽 끝까지 폭을 가져간다.
+ * 앞 블록은 왼쪽 일부가 띠처럼 드러나므로 여전히 보이고 누를 수 있다.
+ *
+ * 전체 밀림이 70% 를 넘지 않게 레인 수로 나눈다 — 맨 뒤 블록도 최소 30% 폭은 갖는다.
+ */
+function laneOffset(laneCount: number): number {
+  if (laneCount <= 1) return 0;
+  return 70 / laneCount;
 }
 
 /*
