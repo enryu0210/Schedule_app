@@ -15,6 +15,9 @@ interface Props {
   todayIdx: number;          // 0=월 ... 6=일
   nowMin: number;            // 0시 기준 현재 분
   blocks: ScheduleBlock[];   // 오늘의 블록들
+  // 조직 시간표를 보여주는 중이면 그 조직 이름. 개인 계획표면 null.
+  // 지금 보이는 게 내 일정인지 조직 일정인지 헷갈리면 안 된다.
+  sourceLabel?: string | null;
   offline?: boolean;         // 클라우드를 못 읽어 캐시를 보여주는 중인지
   lastSyncedAt?: number | null; // 캐시를 만든 시각(ms)
 }
@@ -37,6 +40,7 @@ export function WidgetBody({
   todayIdx,
   nowMin,
   blocks,
+  sourceLabel = null,
   offline = false,
   lastSyncedAt = null,
 }: Props) {
@@ -57,6 +61,14 @@ export function WidgetBody({
       {/* 상단: 요일 + 현재 시각. Tauri 에서는 이 영역을 잡고 창을 옮긴다. */}
       <header className="widget-head" data-tauri-drag-region>
         <span className="widget-day">{WEEKDAYS[todayIdx]}요일</span>
+
+        {/* 조직 시간표를 보고 있다면 반드시 밝힌다.
+            내 일정인 줄 알고 믿는 게 제일 위험하다. */}
+        {sourceLabel && (
+          <span className="widget-source" title={`${sourceLabel} 조직 시간표`}>
+            👥 {sourceLabel}
+          </span>
+        )}
 
         {/* 오프라인이면 지금 보이는 게 "옛날 일정"일 수 있음을 알려준다.
             숨기면 사용자가 이미 지난 시간표를 최신인 줄 알고 믿게 된다. */}

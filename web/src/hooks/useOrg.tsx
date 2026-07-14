@@ -45,6 +45,7 @@ import {
   shareMySchedule,
   unshareMySchedule,
 } from "../lib/orgStorage";
+import { saveSelectedOrgId } from "../lib/cloudStorage";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "./useAuth";
 
@@ -138,14 +139,24 @@ function useOrgState(): OrgContextValue {
   const mySharedSchedule =
     sharedSchedules.find((s) => s.userId === user?.id)?.schedule ?? null;
 
-  const setWorkspace = useCallback((next: Workspace) => {
-    setWorkspaceState(next);
-    try {
-      localStorage.setItem(WORKSPACE_KEY, JSON.stringify(next));
-    } catch {
-      // localStorage 를 못 써도(사생활 보호 모드 등) 앱은 계속 동작해야 한다.
-    }
-  }, []);
+  const setWorkspace = useCallback(
+    (next: Workspace) => {
+      setWorkspaceState(next);
+      try {
+        localStorage.setItem(WORKSPACE_KEY, JSON.stringify(next));
+      } catch {
+        // localStorage 를 못 써도(사생활 보호 모드 등) 앱은 계속 동작해야 한다.
+      }
+
+      // 클라우드에도 남긴다 — **바탕화면 위젯이 이 값을 보고 무엇을 띄울지 정한다.**
+      // 위젯은 별개의 WebView 라 localStorage 를 공유하지 못한다.
+      // 실패해도 웹은 멀쩡하므로 기다리지 않는다(위젯이 이전 화면을 계속 보여줄 뿐).
+      if (user) {
+        void saveSelectedOrgId(user.id, next.kind === "org" ? next.orgId : null);
+      }
+    },
+    [user?.id]
+  );
 
   // 내가 속한 조직 목록 읽기
   const reloadOrgs = useCallback(async () => {

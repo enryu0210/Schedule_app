@@ -878,3 +878,16 @@
   font-weight: 700;
   letter-spacing: 1px;
 }
+
+/* 위젯: 지금 보는 게 조직 시간표임을 알리는 이름표 */
+.widget-source {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 1px 6px;
+  border-radius: 999px;
+}

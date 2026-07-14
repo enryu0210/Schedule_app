@@ -10,6 +10,10 @@ export interface CloudState {
   presets: Preset[];
   // 프리셋이 하나도 없는 신규 사용자는 null 일 수 있다.
   selectedPresetId: string | null;
+  // 지금 보고 있는 작업 공간. null = 개인 계획표, 값이 있으면 그 조직.
+  // 위젯이 "웹에서 마지막으로 보던 것"을 따라가기 위해 클라우드에 둔다
+  // (위젯은 별개의 WebView 라 localStorage 를 공유하지 못한다).
+  selectedOrgId: string | null;
 }
 
 // 클라우드에서 사용자의 프리셋을 불러온다. **실패하면 예외를 던진다.**
@@ -25,19 +29,27 @@ export async function fetchCloudPresets(userId: string): Promise<CloudState | nu
 
   const { data, error } = await supabase
     .from("user_data")
-    .select("presets, selected_preset_id")
+    .select("presets, selected_preset_id, selected_org_id")
     .eq("user_id", userId)
     .maybeSingle(); // 행이 없어도 에러가 아닌 null 로 받는다.
 
   if (error) throw error;
-  if (!data || !Array.isArray(data.presets) || data.presets.length === 0) {
-    return null;
-  }
+  if (!data) return null;
 
-  const presets = data.presets as Preset[];
+  const presets = Array.isArray(data.presets) ? (data.presets as Preset[]) : [];
+  const selectedOrgId = (data.selected_org_id as string | null) ?? null;
+
+  // 개인 프리셋도 없고 보고 있는 조직도 없으면 "아직 아무것도 없는 사용자"다.
+  //
+  // 조직을 보고 있다면 개인 프리셋이 하나도 없어도 null 을 돌려주면 안 된다.
+  // 개인 계획표는 안 쓰고 조직 시간표만 보는 사람이 실제로 있는데,
+  // 그때 null 을 주면 위젯이 "데이터 없음"으로 판단해 빈 화면이 된다.
+  if (presets.length === 0 && !selectedOrgId) return null;
+
   return {
     presets,
-    selectedPresetId: data.selected_preset_id ?? presets[0].id,
+    selectedPresetId: data.selected_preset_id ?? presets[0]?.id ?? null,
+    selectedOrgId,
   };
 }
 
@@ -54,9 +66,13 @@ export async function loadCloudPresets(userId: string): Promise<CloudState | nul
 }
 
 // 클라우드에 사용자의 프리셋을 저장한다. (있으면 갱신, 없으면 삽입 = upsert)
+//
+// selected_org_id 는 여기서 건드리지 않는다(보내는 컬럼만 갱신된다).
+// 프리셋을 저장할 때마다 작업 공간 선택까지 덮어쓰면, 웹에서 개인 계획표를 고치는 순간
+// 위젯이 조직 시간표에서 개인으로 튕겨나간다.
 export async function saveCloudPresets(
   userId: string,
-  state: CloudState
+  state: Pick<CloudState, "presets" | "selectedPresetId">
 ): Promise<boolean> {
   if (!supabase) return false;
   try {
@@ -74,5 +90,26 @@ export async function saveCloudPresets(
     // 저장 실패해도 화면은 로컬 데이터로 계속 동작한다.
     console.error("[Supabase] 프리셋 저장 실패", e);
     return false;
+  }
+}
+
+/**
+ * 지금 보고 있는 작업 공간을 클라우드에 남긴다. (null = 개인 계획표)
+ * 위젯은 이 값을 읽어 "웹에서 마지막으로 보던 것"을 그대로 보여준다.
+ */
+export async function saveSelectedOrgId(
+  userId: string,
+  orgId: string | null
+): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from("user_data")
+      .upsert({ user_id: userId, selected_org_id: orgId }, { onConflict: "user_id" });
+    if (error) throw error;
+  } catch (e) {
+    // 실패해도 웹 화면은 정상 동작한다(localStorage 에 이미 기억해 뒀다).
+    // 위젯이 이전 화면을 계속 보여줄 뿐이다.
+    console.error("[Supabase] 작업 공간 저장 실패", e);
   }
 }

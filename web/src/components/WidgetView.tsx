@@ -13,7 +13,15 @@ import { WidgetBody } from "./WidgetBody";
 
 export function WidgetView() {
   const { user, loading, signInWithKakao } = useAuth();
-  const { presets, selectedPresetId, loaded, offline, lastSyncedAt } = useWidgetPresets();
+  const {
+    presets,
+    selectedPresetId,
+    orgPlan,
+    orgName,
+    loaded,
+    offline,
+    lastSyncedAt,
+  } = useWidgetPresets();
   const now = useNow(30000);
 
   // 1) 로그인 확인 중 / 데이터 로딩 중
@@ -42,7 +50,7 @@ export function WidgetView() {
 
   // 3) 오프라인인데 보여줄 캐시조차 없는 경우 (예: 새 PC 에 설치하자마자 인터넷이 끊김).
   //    이때 빈 시간표를 그리면 "일정이 없다"는 오해를 준다 — 못 읽었다고 분명히 알린다.
-  if (offline && presets.length === 0) {
+  if (offline && presets.length === 0 && !orgPlan) {
     return (
       <div className="widget widget-center">
         <p className="widget-empty">일정을 불러오지 못했어요</p>
@@ -51,8 +59,16 @@ export function WidgetView() {
     );
   }
 
-  // 선택된 프리셋이 없으면(예: 삭제됨) 첫 번째 프리셋으로 대체한다.
-  const preset = presets.find((p) => p.id === selectedPresetId) ?? presets[0] ?? null;
+  // 무엇을 보여줄지는 **웹에서 마지막으로 보던 것**을 따라간다.
+  // (위젯은 창이 작아 고르는 UI 를 넣을 자리가 없다 — 프리셋 선택도 이미 같은 방식이다)
+  //
+  // 조직을 보는 중인데 아직 배포된 조직 시간표가 없거나, 조직에서 나가 못 읽게 됐다면
+  // orgPlan 이 null 이다. 그때는 조용히 개인 계획표로 떨어진다 — 빈 화면보다 낫다.
+  const personalPreset =
+    presets.find((p) => p.id === selectedPresetId) ?? presets[0] ?? null;
+  const preset = orgPlan ?? personalPreset;
+  // 조직 시간표를 보여줄 때만 이름표를 붙인다. 개인 일정과 헷갈리면 안 된다.
+  const sourceLabel = orgPlan ? orgName : null;
 
   const todayIdx = jsDayToMondayIndex(now.getDay());
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -63,6 +79,7 @@ export function WidgetView() {
       todayIdx={todayIdx}
       nowMin={nowMin}
       blocks={blocks}
+      sourceLabel={sourceLabel}
       offline={offline}
       lastSyncedAt={lastSyncedAt}
     />

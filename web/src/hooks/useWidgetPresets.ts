@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Preset } from "../types";
 import { fetchCloudPresets } from "../lib/cloudStorage";
+import { fetchOrgById, fetchOrgPlan } from "../lib/orgStorage";
 import { readWidgetCache, writeWidgetCache } from "../lib/widgetCache";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "./useAuth";
@@ -30,6 +31,12 @@ const REFRESH_MS = 60_000;
 export interface WidgetPresets {
   presets: Preset[];
   selectedPresetId: string | null;
+  /** 웹에서 조직을 보고 있으면 그 조직 id. 개인 계획표면 null */
+  selectedOrgId: string | null;
+  /** 관리자가 배포한 조직 시간표. 조직을 보는 중이 아니거나 아직 배포 전이면 null */
+  orgPlan: Preset | null;
+  /** 조직 이름 (위젯 헤더에 무엇을 보고 있는지 표시) */
+  orgName: string | null;
   loaded: boolean;
   /** 클라우드 읽기에 실패해 캐시(또는 직전 화면)를 보여주는 중인지 */
   offline: boolean;
@@ -42,6 +49,9 @@ export function useWidgetPresets(): WidgetPresets {
 
   const [presets, setPresets] = useState<Preset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [orgPlan, setOrgPlan] = useState<Preset | null>(null);
+  const [orgName, setOrgName] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
@@ -54,15 +64,34 @@ export function useWidgetPresets(): WidgetPresets {
       const cloud = await fetchCloudPresets(userId);
       if (cancelledRef.current) return;
 
-      // 성공. cloud 가 null 이면 "아직 프리셋을 만들지 않은 사용자" — 빈 화면이 맞다.
+      // 웹에서 조직 워크스페이스를 보고 있었다면, 위젯도 그 조직 시간표를 띄운다.
+      // (선택은 웹이 한다 — 위젯에는 고를 UI 를 넣을 공간이 없다)
+      let orgPlan: Preset | null = null;
+      let orgName: string | null = null;
+      if (cloud?.selectedOrgId) {
+        // 조직에서 나갔거나 조직이 지워졌으면 RLS 가 아무것도 주지 않는다 → null.
+        // 그때는 조용히 개인 계획표로 떨어진다(아래 화면 로직).
+        const [plan, org] = await Promise.all([
+          fetchOrgPlan(cloud.selectedOrgId),
+          fetchOrgById(cloud.selectedOrgId),
+        ]);
+        if (cancelledRef.current) return;
+        orgPlan = plan;
+        orgName = org?.name ?? null;
+      }
+
+      // 성공. cloud 가 null 이면 "아직 아무것도 만들지 않은 사용자" — 빈 화면이 맞다.
       setPresets(cloud?.presets ?? []);
       setSelectedPresetId(cloud?.selectedPresetId ?? null);
+      setSelectedOrgId(cloud?.selectedOrgId ?? null);
+      setOrgPlan(orgPlan);
+      setOrgName(orgName);
       setOffline(false);
       setLastSyncedAt(Date.now());
 
       // 다음번 오프라인을 대비해 사본을 남긴다. (빈 결과는 덮어쓰지 않는다 —
       // 일시적으로 빈 응답을 받았다고 멀쩡한 캐시를 날릴 이유는 없다)
-      if (cloud) writeWidgetCache(userId, cloud);
+      if (cloud) writeWidgetCache(userId, { ...cloud, orgPlan, orgName });
     } catch {
       // 실패 = 인터넷/서버 문제. 화면은 건드리지 않는다(캐시 또는 직전 내용 유지).
       if (cancelledRef.current) return;
@@ -91,6 +120,9 @@ export function useWidgetPresets(): WidgetPresets {
     if (cached) {
       setPresets(cached.presets);
       setSelectedPresetId(cached.selectedPresetId);
+      setSelectedOrgId(cached.selectedOrgId);
+      setOrgPlan(cached.orgPlan);
+      setOrgName(cached.orgName);
       setLastSyncedAt(cached.savedAt || null);
       setLoaded(true);
     }
@@ -137,5 +169,47 @@ export function useWidgetPresets(): WidgetPresets {
     };
   }, [user?.id, refresh]);
 
-  return { presets, selectedPresetId, loaded, offline, lastSyncedAt };
+  // 조직 시간표를 보는 중이라면, 관리자가 그걸 고쳤을 때도 즉시 따라가야 한다.
+  // (user_data 구독은 '내 행'만 보므로 남이 고친 org_plans 변경은 오지 않는다)
+  //
+  // 구독을 따로 두는 이유: 보고 있는 조직이 바뀔 때마다 이 구독만 갈아끼우면 되고,
+  // 위의 user_data 구독·폴링·캐시 로직을 건드리지 않아도 된다.
+  useEffect(() => {
+    if (!supabase || !user || !selectedOrgId) return;
+    const userId = user.id;
+
+    const channel = supabase
+      .channel(`widget:org_plans:${selectedOrgId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "org_plans",
+          filter: `org_id=eq.${selectedOrgId}`,
+        },
+        () => refresh(userId)
+      )
+      .subscribe((status) => {
+        // 실패해도 폴링(60초)이 받아준다. 반영이 늦어질 뿐이다.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[Widget] 조직 시간표 Realtime 구독 실패(${status})`);
+        }
+      });
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [user?.id, selectedOrgId, refresh]);
+
+  return {
+    presets,
+    selectedPresetId,
+    selectedOrgId,
+    orgPlan,
+    orgName,
+    loaded,
+    offline,
+    lastSyncedAt,
+  };
 }

@@ -41,6 +41,27 @@ export async function fetchMyOrgs(): Promise<Organization[]> {
   }));
 }
 
+/**
+ * 조직 하나를 읽는다. (위젯이 조직 시간표를 띄울 때 이름표를 붙이려고 쓴다)
+ * 내가 그 조직의 승인된 구성원이 아니면 RLS 가 아무것도 주지 않는다 → null.
+ */
+export async function fetchOrgById(orgId: string): Promise<Organization | null> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("organizations")
+    .select("id, name, invite_code")
+    .eq("id", orgId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    inviteCode: data.invite_code as string,
+  };
+}
+
 /** 조직 만들기. 만든 사람이 곧 관리자가 된다(DB 함수 안에서 한 번에 처리). */
 export async function createOrg(
   name: string,

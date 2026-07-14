@@ -13,12 +13,21 @@
  * 주의: 이 캐시는 "보여주기용 사본"일 뿐이다. 위젯은 절대 클라우드에 쓰지 않으므로,
  *       캐시가 오래됐더라도 원본(클라우드)을 덮어쓸 일은 없다.
  */
+import type { Preset } from "../types";
 import type { CloudState } from "./cloudStorage";
 
 // 사용자마다 따로 저장한다. 한 PC 를 여러 계정이 쓰면 남의 일정이 보이면 안 되기 때문이다.
 const KEY_PREFIX = "widget-cache:";
 
-export interface CachedPresets extends CloudState {
+/** 위젯이 실제로 그리는 데 필요한 것 전부. (개인 프리셋 + 지금 보는 조직 시간표) */
+export interface WidgetSnapshot extends CloudState {
+  // 조직을 보고 있을 때, 관리자가 배포한 조직 시간표와 조직 이름.
+  // 개인 계획표를 보는 중이면 둘 다 null.
+  orgPlan: Preset | null;
+  orgName: string | null;
+}
+
+export interface CachedPresets extends WidgetSnapshot {
   // 마지막으로 클라우드에서 읽어온 시각(ms). "언제 기준 일정인지" 표시에 쓴다.
   savedAt: number;
 }
@@ -34,12 +43,19 @@ export function readWidgetCache(userId: string): CachedPresets | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<CachedPresets>;
-    // 예전 버전이 남긴 값이나 손상된 값을 그대로 믿지 않는다.
-    if (!Array.isArray(parsed.presets) || parsed.presets.length === 0) return null;
+    const presets = Array.isArray(parsed.presets) ? parsed.presets : [];
+    const orgPlan = parsed.orgPlan ?? null;
+
+    // 그릴 게 아무것도 없으면 캐시가 없는 것과 같다.
+    // (개인 프리셋만 있는 사람도, 조직 시간표만 보는 사람도 있다 — 둘 중 하나만 있으면 유효하다)
+    if (presets.length === 0 && !orgPlan) return null;
 
     return {
-      presets: parsed.presets,
-      selectedPresetId: parsed.selectedPresetId ?? parsed.presets[0].id,
+      presets,
+      selectedPresetId: parsed.selectedPresetId ?? presets[0]?.id ?? null,
+      selectedOrgId: parsed.selectedOrgId ?? null,
+      orgPlan,
+      orgName: parsed.orgName ?? null,
       savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0,
     };
   } catch {
@@ -49,9 +65,9 @@ export function readWidgetCache(userId: string): CachedPresets | null {
 }
 
 // 클라우드에서 읽기에 성공했을 때만 부른다.
-export function writeWidgetCache(userId: string, state: CloudState): void {
+export function writeWidgetCache(userId: string, snapshot: WidgetSnapshot): void {
   try {
-    const payload: CachedPresets = { ...state, savedAt: Date.now() };
+    const payload: CachedPresets = { ...snapshot, savedAt: Date.now() };
     localStorage.setItem(keyOf(userId), JSON.stringify(payload));
   } catch {
     // 저장 공간이 꽉 찼거나 접근이 막혀도 위젯 동작 자체는 계속돼야 한다.
