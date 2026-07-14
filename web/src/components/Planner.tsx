@@ -13,6 +13,7 @@ import { createId } from "../lib/id";
 import { jsDayToMondayIndex, oneHourLater, toMinutes } from "../lib/time";
 import { useNow } from "../hooks/useNow";
 import { usePresetStore } from "../hooks/usePresetStore";
+import { useSharedScheduleSync } from "../hooks/useSharedScheduleSync";
 import { useViewMode } from "../hooks/useViewMode";
 import { PresetSidebar } from "./PresetSidebar";
 import { DayTabs } from "./DayTabs";
@@ -33,6 +34,10 @@ interface Props {
 export function Planner({ onAddOrg }: Props) {
   const { presets, setPresets, selectedPresetId, setSelectedPresetId, loaded } =
     usePresetStore();
+
+  // 조직에 공유해 둔 프리셋을 고쳤다면, 그 조직의 공유본도 따라 갱신한다.
+  // (사람이 '공유 갱신' 버튼 누르는 걸 잊으면 관리자가 옛 시간표로 일정을 짜게 된다)
+  useSharedScheduleSync(presets, loaded);
 
   // 현재 시각(30초마다 갱신) → 오늘 요일 / 지금 할 일 하이라이트에 사용.
   const now = useNow();

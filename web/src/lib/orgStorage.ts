@@ -108,6 +108,29 @@ export async function fetchSharedSchedules(
 }
 
 /**
+ * 내가 '어느 조직에 무엇을' 공유해 뒀는지 전부 읽는다. (조직을 가리지 않는다)
+ *
+ * 공유 자동 갱신에 쓴다 — 개인 프리셋을 고쳤을 때, 그 프리셋을 공유해 둔
+ * 모든 조직의 사본을 따라 갱신해야 하기 때문이다.
+ * 그러지 않으면 팀원이 시간표를 고쳐도 관리자는 옛날 것을 보고 일정을 짠다.
+ */
+export async function fetchMySharedSchedules(
+  userId: string
+): Promise<{ orgId: string; schedule: Preset }[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("org_shared_schedules")
+    .select("org_id, schedule")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    orgId: row.org_id as string,
+    schedule: row.schedule as Preset,
+  }));
+}
+
+/**
  * 내 프리셋 하나를 조직에 공유한다(사본 저장).
  * 한 사람이 한 조직에 하나만 공유한다 — 여러 개를 올리면 관리자가 무엇을 봐야 할지 모른다.
  */

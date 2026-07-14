@@ -176,7 +176,7 @@ export function OrgWorkspace({ onAddOrg }: Props) {
                   )
                 }
               >
-                {mySharedSchedule ? "공유 갱신" : "조직에 공유"}
+                {mySharedSchedule ? "다른 프리셋으로 바꾸기" : "조직에 공유"}
               </button>
 
               {mySharedSchedule && (
@@ -194,7 +194,7 @@ export function OrgWorkspace({ onAddOrg }: Props) {
             {mySharedSchedule && (
               <div className="org-shared-now">
                 현재 <b>{mySharedSchedule.label}</b> 을(를) 공유 중입니다.
-                개인 계획표를 고쳤다면 <b>공유 갱신</b>을 눌러야 반영됩니다.
+                개인 계획표에서 이 프리셋을 고치면 <b>자동으로 갱신</b>됩니다.
               </div>
             )}
           </>
