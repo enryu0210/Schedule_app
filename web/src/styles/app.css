@@ -546,3 +546,238 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============================================================
+   조직(팀/기업) 워크스페이스
+   ============================================================ */
+
+/* --- 개인 ↔ 조직 전환 --- */
+.workspace-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.workspace-switcher-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.workspace-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* --- 역할 배지 / 초대 코드 --- */
+.role-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--neutral-fill);
+  color: var(--neutral-text);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.role-badge.admin {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.invite-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.invite-code code {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--gray-fill);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.btn.tiny {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+/* --- 탭 --- */
+.org-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 12px;
+}
+.org-tab {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.org-tab.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- 공유 / 배포 --- */
+.org-share,
+.org-publish,
+.org-members {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.org-share h2,
+.org-members h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.org-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.org-share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.org-shared-now {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.org-error {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--pink-fill);
+  color: var(--pink-text);
+  font-size: 13px;
+}
+
+/* --- 구성원 목록 --- */
+.org-members ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.org-members li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+.share-state {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.share-state.on {
+  color: var(--teal-text);
+  font-weight: 600;
+}
+
+/* --- 겹쳐보기(빈 시간 찾기) --- */
+.overlap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.overlap-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.overlap-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.overlap-note {
+  margin-left: auto;
+}
+.overlap-grid {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+.overlap-times {
+  width: 48px;
+  flex: none;
+  border-right: 1px solid var(--border);
+}
+.overlap-time {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.overlap-col {
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+.overlap-col:last-child {
+  border-right: none;
+}
+.overlap-head {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.overlap-head.today {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+.overlap-cell {
+  border-bottom: 1px solid var(--bg);
+}
+/* 아무도 안 바쁜 시간 = 회의를 잡을 수 있는 시간. 여기가 이 화면의 정답이다. */
+.overlap-swatch.free,
+.overlap-cell.free {
+  background: var(--teal-fill);
+}
+.overlap-swatch.busy-1,
+.overlap-cell.busy-1 {
+  background: #f3ece2;
+}
+.overlap-cell.busy-2 {
+  background: #e8d9c6;
+}
+.overlap-swatch.busy-3,
+.overlap-cell.busy-3 {
+  background: #d3b697;
+}
+
+/* 배포된 조직 시간표는 읽기 전용 — 드래그/클릭으로 고칠 수 없게 막는다. */
+.readonly-grid {
+  pointer-events: none;
+}

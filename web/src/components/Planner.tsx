@@ -23,8 +23,14 @@ import { BlockEditor } from "./BlockEditor";
 import { NameDialog } from "./NameDialog";
 import { AuthBar } from "./AuthBar";
 import { DownloadWidget } from "./DownloadWidget";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
-export function Planner() {
+interface Props {
+  // 상단바의 작업 공간 전환에서 "조직 만들기 / 참여하기"를 골랐을 때.
+  onAddOrg: () => void;
+}
+
+export function Planner({ onAddOrg }: Props) {
   const { presets, setPresets, selectedPresetId, setSelectedPresetId, loaded } =
     usePresetStore();
 
@@ -135,7 +141,10 @@ export function Planner() {
   if (!loaded) {
     return (
       <div className="wrap">
-        <div className="auth-row"><AuthBar /></div>
+        <div className="auth-row">
+          <WorkspaceSwitcher onAddOrg={onAddOrg} />
+          <AuthBar />
+        </div>
         <div className="loading-hint">불러오는 중…</div>
       </div>
     );
@@ -145,7 +154,10 @@ export function Planner() {
   if (presets.length === 0) {
     return (
       <div className="wrap">
-        <div className="auth-row"><AuthBar /></div>
+        <div className="auth-row">
+          <WorkspaceSwitcher onAddOrg={onAddOrg} />
+          <AuthBar />
+        </div>
         <div className="empty-state">
           <div className="empty-state-emoji">🗓️</div>
           <h2>아직 계획표가 없어요</h2>
@@ -278,6 +290,7 @@ export function Planner() {
           >
             ☰
           </button>
+          <WorkspaceSwitcher onAddOrg={onAddOrg} />
           <DownloadWidget />
           <AuthBar />
         </div>

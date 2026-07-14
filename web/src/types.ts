@@ -40,3 +40,37 @@ export interface Preset {
   label: string;      // 프리셋 이름
   days: DayPlan[];    // 항상 길이 7 (월~일)
 }
+
+/* ------------------------------------------------------------
+ * 조직(팀/기업) 워크스페이스
+ * ------------------------------------------------------------ */
+
+// 조직 안에서의 권한.
+// - admin:  조직 공용 시간표를 배포할 수 있다
+// - member: 자기 시간표를 공유하고, 배포된 시간표를 본다
+export type OrgRole = "admin" | "member";
+
+export interface Organization {
+  id: string;
+  name: string;
+  // 8자리 초대 코드. 카카오 사용자는 이메일이 없을 수 있어 이메일 초대를 못 쓴다.
+  inviteCode: string;
+}
+
+export interface OrgMember {
+  userId: string;
+  role: OrgRole;
+  displayName: string;
+}
+
+// 팀원이 조직에 공유한 시간표(사본). 개인 프리셋 원본이 아니다.
+export interface SharedSchedule {
+  userId: string;
+  schedule: Preset;
+}
+
+// 지금 보고 있는 작업 공간.
+// 이 구분이 곧 프라이버시 경계선이다 — personal 의 데이터는 조직에 절대 노출되지 않는다.
+export type Workspace =
+  | { kind: "personal" }
+  | { kind: "org"; orgId: string };
