@@ -854,26 +854,27 @@
   min-width: 0;
 }
 
-/* --- 초대 링크 박스 --- */
-.invite-box {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-.invite-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+/* --- 초대 모달 --- */
 /* 공유·복사가 안 될 때를 대비해 링크를 항상 보여준다(손으로 복사할 길). */
 .invite-link {
   width: 100%;
-  max-width: 340px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--gray-fill);
   color: var(--text-secondary);
   font-size: 12px;
+}
+.invite-code-row {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.invite-code-row code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--gray-fill);
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 1px;
 }

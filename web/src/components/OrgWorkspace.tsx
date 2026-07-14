@@ -17,9 +17,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useNow } from "../hooks/useNow";
 import { useOrg } from "../hooks/useOrg";
 import { usePresetStore } from "../hooks/usePresetStore";
-import { buildInviteLink, shareInviteLink } from "../lib/inviteLink";
 import { jsDayToMondayIndex } from "../lib/time";
 import { AuthBar } from "./AuthBar";
+import { InviteDialog } from "./InviteDialog";
 import { OrgPlanEditor } from "./OrgPlanEditor";
 import { TeamOverlapGrid } from "./TeamOverlapGrid";
 import { WeekGrid } from "./WeekGrid";
@@ -62,8 +62,7 @@ export function OrgWorkspace({ onAddOrg }: Props) {
   const [tab, setTab] = useState<Tab>("overlap");
   const [pickedPresetId, setPickedPresetId] = useState<string>("");
   const [busy, setBusy] = useState(false);
-  // 초대 링크를 어떻게 처리했는지 알려주는 짧은 메시지(공유됨 / 복사됨).
-  const [inviteMsg, setInviteMsg] = useState<string>("");
+  const [showInvite, setShowInvite] = useState(false);
 
   // 고른 조직이 목록에 없다 = 탈퇴했거나 조직이 지워졌는데 선택값만 남은 경우.
   // 빈 화면을 보여주면 사용자는 앱이 고장 난 줄 안다. 개인 공간으로 돌아갈 길을 준다.
@@ -157,46 +156,18 @@ export function OrgWorkspace({ onAddOrg }: Props) {
             {isAdmin ? "관리자" : "팀원"}
           </span>
         </h1>
+        {/* 초대 내용(링크·코드)은 모달로 뺀다.
+            헤더에 링크 입력칸까지 넣었더니 제목·시계와 같은 줄을 밀어내 레이아웃이 깨졌다. */}
         {isAdmin && (
-          <div className="invite-box">
-            <div className="invite-row">
-              <button
-                className="btn primary"
-                onClick={async () => {
-                  const result = await shareInviteLink(
-                    currentOrg.name,
-                    currentOrg.inviteCode
-                  );
-                  // 어떤 결과든 반드시 화면에 말해준다.
-                  // 조용히 끝나는 경로가 있으면 사용자는 버튼이 고장 난 줄 안다(실제로 겪음).
-                  setInviteMsg(
-                    result === "shared"
-                      ? "공유했어요."
-                      : result === "cancelled"
-                      ? "공유를 취소했어요."
-                      : result === "copied"
-                      ? "초대 링크를 복사했어요. 카카오톡에 붙여넣으세요."
-                      : "복사에 실패했어요. 아래 링크를 직접 복사해 주세요."
-                  );
-                }}
-              >
-                카카오톡으로 초대
-              </button>
-              {inviteMsg && <span className="invite-msg">{inviteMsg}</span>}
-            </div>
-
-            {/* 링크를 항상 눈에 보이게 둔다.
-                공유·복사가 어떤 이유로든 안 될 때 손으로 복사할 길이 없으면 안 된다. */}
-            <input
-              className="invite-link"
-              readOnly
-              value={buildInviteLink(currentOrg.inviteCode)}
-              onFocus={(e) => e.currentTarget.select()}
-              aria-label="초대 링크"
-            />
-          </div>
+          <button className="btn primary" onClick={() => setShowInvite(true)}>
+            초대하기
+          </button>
         )}
       </div>
+
+      {showInvite && currentOrg && (
+        <InviteDialog org={currentOrg} onClose={() => setShowInvite(false)} />
+      )}
 
       {/* 관리자: 처리해야 할 가입 신청.
           링크는 아는 사람이면 누구나 쓸 수 있으므로, 승인을 거쳐야 조직원이 된다.
