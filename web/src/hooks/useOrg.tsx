@@ -20,6 +20,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -42,6 +43,7 @@ import {
   shareMySchedule,
   unshareMySchedule,
 } from "../lib/orgStorage";
+import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "./useAuth";
 
 // 마지막으로 보던 작업 공간을 기억한다. 새로고침할 때마다 개인으로 튕기면 성가시다.
@@ -110,6 +112,8 @@ function useOrgState(): OrgContextValue {
   const [orgPlan, setOrgPlan] = useState<Preset | null>(null);
 
   const [loading, setLoading] = useState(false);
+  // 어느 조직까지 성공적으로 읽어봤는지. 로딩 표시를 '처음 열 때'로만 제한하는 데 쓴다.
+  const loadedOrgId = useRef<string | null>(null);
   // 읽기에 실패했을 때, 빈 화면 대신 "못 읽었다"고 알린다.
   // 조직 화면에서 이 구분은 특히 중요하다 — 공유한 시간표가 네트워크 문제로 안 보이면
   // 관리자가 "이 사람은 안 냈네" 하고 잘못된 일정을 짜게 된다.
@@ -161,7 +165,11 @@ function useOrgState(): OrgContextValue {
       return;
     }
 
-    setLoading(true);
+    // 로딩 표시는 이 조직을 **처음 열 때만** 띄운다.
+    // 자동 저장이나 Realtime 알림으로 다시 읽을 때도 로딩을 띄우면 화면이 통째로 갈아엎어져,
+    // 편집 중이던 조직 시간표 편집기가 사라졌다 다시 뜨면서 입력이 날아간다.
+    const firstLoad = loadedOrgId.current !== currentOrgId;
+    if (firstLoad) setLoading(true);
     setError(null);
     try {
       // 셋 다 필요하므로 한꺼번에 받는다. 하나라도 실패하면 실패로 본다
@@ -174,6 +182,9 @@ function useOrgState(): OrgContextValue {
       setMembers(nextMembers);
       setSharedSchedules(nextShared);
       setOrgPlan(nextPlan);
+      // 성공했을 때만 "이 조직은 이미 읽었다"고 표시한다.
+      // 실패했는데 표시해버리면, 다음 재시도 때 로딩 표시 없이 조용히 실패한다.
+      loadedOrgId.current = currentOrgId;
     } catch (e) {
       console.error("[Org] 조직 데이터 불러오기 실패", e);
       setError("조직 데이터를 불러오지 못했습니다. 새로고침해 주세요.");
@@ -185,6 +196,64 @@ function useOrgState(): OrgContextValue {
   useEffect(() => {
     void reloadCurrentOrg();
   }, [reloadCurrentOrg]);
+
+  /*
+   * Realtime 구독 — 남이 바꾼 것을 새로고침 없이 본다.
+   *
+   * 이게 없으면:
+   *   관리자가 조직 시간표를 배포해도 팀원은 새로고침해야 보고,
+   *   팀원이 시간표를 공유해도 관리자 화면은 그대로다.
+   *   관리자는 "다들 냈나?" 하면서 F5 를 누르고 있게 된다.
+   *
+   * 알림에 담긴 값을 그대로 쓰지 않고 **다시 읽는다**(reloadCurrentOrg).
+   *   알림 순서가 뒤바뀌거나 중간 것을 놓쳐도 항상 최신 상태로 수렴하기 때문이다.
+   *   (위젯에서 이미 검증된 방식 — useWidgetPresets)
+   *
+   * 폴링 안전망은 두지 않는다. 위젯과 달리 사람이 보고 있는 화면이라,
+   * 구독이 끊기면 새로고침하면 된다.
+   * 관리자가 편집 중일 때 자기 저장이 되돌아와 덮어쓰는 문제는
+   * OrgPlanEditor 의 dirty 플래그가 막는다.
+   */
+  useEffect(() => {
+    if (!supabase || !currentOrgId) return;
+
+    const channel = supabase
+      .channel(`org:${currentOrgId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // 공유는 INSERT, 갱신은 UPDATE, 내리기는 DELETE — 전부 받는다.
+          schema: "public",
+          table: "org_shared_schedules",
+          filter: `org_id=eq.${currentOrgId}`,
+        },
+        () => void reloadCurrentOrg()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "org_plans",
+          filter: `org_id=eq.${currentOrgId}`,
+        },
+        () => void reloadCurrentOrg()
+      )
+      .subscribe((status) => {
+        // 구독이 실패해도 화면은 동작한다. 남의 변경이 늦게 보일 뿐이다.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(
+            `[Org] Realtime 구독 실패(${status}) — 새로고침해야 최신 상태가 보입니다. ` +
+              "Supabase 에서 org_plans / org_shared_schedules 의 Realtime 발행을 확인하세요."
+          );
+        }
+      });
+
+    // 조직을 바꾸거나 화면을 떠나면 반드시 구독을 끊는다(안 그러면 채널이 계속 쌓인다).
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [currentOrgId, reloadCurrentOrg]);
 
   /* --- 동작(액션)들 --- */
 
