@@ -781,3 +781,40 @@
 .readonly-grid {
   pointer-events: none;
 }
+
+/* --- 조직 시간표 직접 편집 (관리자) --- */
+.org-plan-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.org-plan-title {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+/* 저장 상태를 반드시 보여준다 — 자동 저장은 '저장했나?' 불안을 낳는다. */
+.save-state {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.save-state.saved {
+  color: var(--teal-text);
+}
+.save-state.failed {
+  color: var(--pink-text);
+  font-weight: 600;
+}
+.btn.danger {
+  border-color: var(--pink-fill);
+  background: var(--pink-fill);
+  color: var(--pink-text);
+}

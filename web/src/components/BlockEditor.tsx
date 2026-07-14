@@ -17,9 +17,13 @@ interface Props {
   defaultStart?: string;
   onSave: (block: ScheduleBlock) => void;
   onCancel: () => void;
+  // 이 모달에서 바로 삭제할 수 있게 한다(선택).
+  // 조직 시간표는 그래프 뷰로만 편집하므로, 이게 없으면 블록을 지울 방법이 아예 없다.
+  // (개인 계획표는 목록 뷰에 삭제 버튼이 따로 있어서 넘기지 않는다)
+  onDelete?: (blockId: string) => void;
 }
 
-export function BlockEditor({ initial, defaultStart, onSave, onCancel }: Props) {
+export function BlockEditor({ initial, defaultStart, onSave, onCancel, onDelete }: Props) {
   const start0 = initial?.start ?? defaultStart ?? "09:00";
   const [start, setStart] = useState(start0);
   const [end, setEnd] = useState(initial?.end ?? oneHourLater(start0));
@@ -91,6 +95,16 @@ export function BlockEditor({ initial, defaultStart, onSave, onCancel }: Props) 
         {error && <div style={{ color: "#b3261e", fontSize: 12, marginTop: 4 }}>{error}</div>}
 
         <div className="modal-actions">
+          {/* 삭제는 되돌릴 수 없으므로 왼쪽에 따로 떨어뜨려 둔다 — 저장 옆에 두면 잘못 누른다. */}
+          {initial && onDelete && (
+            <button
+              className="btn danger"
+              style={{ marginRight: "auto" }}
+              onClick={() => onDelete(initial.id)}
+            >
+              삭제
+            </button>
+          )}
           <button className="btn ghost" onClick={onCancel}>취소</button>
           <button className="btn primary" onClick={handleSave}>저장</button>
         </div>

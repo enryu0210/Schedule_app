@@ -19,6 +19,7 @@ import { useOrg } from "../hooks/useOrg";
 import { usePresetStore } from "../hooks/usePresetStore";
 import { jsDayToMondayIndex } from "../lib/time";
 import { AuthBar } from "./AuthBar";
+import { OrgPlanEditor } from "./OrgPlanEditor";
 import { TeamOverlapGrid } from "./TeamOverlapGrid";
 import { WeekGrid } from "./WeekGrid";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
@@ -224,68 +225,34 @@ export function OrgWorkspace({ onAddOrg }: Props) {
           sharedSchedules={sharedSchedules}
           todayIdx={todayIdx}
         />
+      ) : isAdmin ? (
+        // 관리자는 조직 시간표를 여기서 직접 짠다.
+        // 개인 프리셋을 만들어 배포하는 방식은 순서가 억지스러웠다 —
+        // 조직 시간표를 짜려고 내 개인 계획표를 먼저 어지럽혀야 했다.
+        <OrgPlanEditor
+          plan={orgPlan}
+          todayIdx={todayIdx}
+          nowMin={now.getHours() * 60 + now.getMinutes()}
+          onSave={publishPlan}
+        />
+      ) : orgPlan ? (
+        // 팀원에게는 읽기 전용. 클릭·드래그를 CSS 로 막는다.
+        <div className="readonly-grid">
+          <WeekGrid
+            days={orgPlan.days}
+            todayIdx={todayIdx}
+            nowMin={now.getHours() * 60 + now.getMinutes()}
+            onEditBlock={() => {}}
+            onAddBlockAt={() => {}}
+            onMoveBlock={() => {}}
+          />
+        </div>
       ) : (
-        <section>
-          {isAdmin && (
-            <div className="org-publish">
-              <p className="org-hint">
-                빈 시간을 확인한 뒤, 조직 시간표로 쓸 프리셋을 골라 배포하세요.
-                배포하면 팀원 화면에 즉시 나타납니다.
-              </p>
-              <div className="org-share-row">
-                <select
-                  className="workspace-select"
-                  value={pickedPreset?.id ?? ""}
-                  onChange={(e) => setPickedPresetId(e.target.value)}
-                >
-                  {presets.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn primary"
-                  disabled={busy || !pickedPreset}
-                  onClick={() =>
-                    pickedPreset &&
-                    run(
-                      () => publishPlan(pickedPreset),
-                      "조직 시간표 배포에 실패했습니다."
-                    )
-                  }
-                >
-                  {orgPlan ? "조직 시간표 갱신" : "조직 시간표 배포"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {orgPlan ? (
-            // 배포된 시간표는 읽기 전용이다. 여기서 고치면 개인 프리셋과 어긋나므로
-            // 클릭·드래그를 CSS 로 막고, 콜백은 아무것도 하지 않게 둔다.
-            <div className="readonly-grid">
-              <WeekGrid
-                days={orgPlan.days}
-                todayIdx={todayIdx}
-                nowMin={now.getHours() * 60 + now.getMinutes()}
-                onEditBlock={() => {}}
-                onAddBlockAt={() => {}}
-                onMoveBlock={() => {}}
-              />
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-emoji">📋</div>
-              <h2>아직 배포된 조직 시간표가 없어요</h2>
-              <p>
-                {isAdmin
-                  ? "빈 시간을 확인한 뒤 위에서 배포해보세요."
-                  : "관리자가 조직 시간표를 배포하면 여기에 표시됩니다."}
-              </p>
-            </div>
-          )}
-        </section>
+        <div className="empty-state">
+          <div className="empty-state-emoji">📋</div>
+          <h2>아직 조직 시간표가 없어요</h2>
+          <p>관리자가 조직 시간표를 만들면 여기에 표시됩니다.</p>
+        </div>
       )}
 
       <div className="org-members">
