@@ -7,6 +7,9 @@
   **데스크탑 위젯과 달리 `web/dist` 를 APK 안에 번들** → 웹 코드를 고치면 `cd mobile; npm run sync` 후 재빌드해야 반영됨
 - 스택: React + Vite + TypeScript(strict), Supabase(클라우드 저장), 카카오 로그인
 - 데이터 모델: `web/src/types.ts` — Preset → DayPlan(7개) → ScheduleBlock
+- 조직(팀) 워크스페이스는 `supabase/org-schema.sql` + `docs/조직-워크스페이스.md`.
+  **개인 데이터(`user_data`)와 조직 데이터는 파일·테이블·RLS 부터 분리**되어 있다 —
+  조직에 보이는 건 팀원이 직접 공유한 프리셋의 *사본* 뿐. 이 경계를 흐리지 말 것
 - 디자인 토큰(색/여백)은 `web/src/styles/tokens.css`, 컴포넌트는 1파일 1기능
 
 ## 빌드 / 검증 / 실행
@@ -21,6 +24,8 @@
 ## 동작 / 배포
 - 프리셋 데이터는 클라우드 자동 저장(`usePresetStore`) — 별도 저장 버튼 없음
 - `origin/main` 푸쉬 시 자동 배포 → 푸쉬 전 확인받기
+- **작업(기능) 하나가 끝날 때마다 `docs/프로젝트-현황.md` 를 갱신할 것.**
+  세션이 자주 끊기므로(PC 이동 등) 이 문서가 재개 시 유일한 출발점이다
 
 ## 위젯 (반드시 알 것)
 - **위젯은 배포된 웹앱을 `?widget=1` 로 로드한다.** 따라서 웹 코드를 고쳐도
