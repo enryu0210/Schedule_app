@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    안드로이드 "적응형 아이콘"의 배경 레이어.
+
+    적응형 아이콘은 배경/전경 두 장을 겹쳐 놓고, 기기(런처)가 원하는 모양
+    (원·둥근사각·물방울…)으로 잘라낸다. 그래서 배경은 모서리를 둥글게 깎지 않고
+    화면 끝까지 꽉 채워야 한다 — 여기서 둥글게 만들면 잘린 모서리에 빈틈이 생긴다.
+    (app-icon.svg 의 rx="112" 이 여기엔 없는 이유)
+  -->
+  <defs>
+    <linearGradient id="warmBg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#e08a5b"/>
+      <stop offset="1" stop-color="#c25f38"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" fill="url(#warmBg)"/>
+  <rect x="0" y="0" width="512" height="512" fill="url(#shine)"/>
+</svg>

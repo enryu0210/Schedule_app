@@ -6,12 +6,15 @@
   "scripts": {
     "build:web": "npm --prefix ../web run build",
     "sync": "npm run build:web && cap sync android",
+    "icons": "node scripts/make-icons.mjs && capacitor-assets generate --android",
     "open": "cap open android",
     "apk": "cd android && gradlew.bat assembleDebug",
     "install:phone": "cd android && gradlew.bat installDebug"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^7.6.7",
+    "sharp": "^0.35.3",
     "typescript": "^5.9.3"
   },
   "dependencies": {

@@ -307,12 +307,14 @@ export function OrgWorkspace({ onAddOrg }: Props) {
           onSave={publishPlan}
         />
       ) : orgPlan ? (
-        // 팀원에게는 읽기 전용. 클릭·드래그를 CSS 로 막는다.
+        // 팀원에게는 읽기 전용. editable=false 로 조작 자체를 막는다.
+        // (CSS 로만 막던 것을 프로프로 옮겼다 — 그래야 드래그 핸들러가 아예 붙지 않는다)
         <div className="readonly-grid">
           <WeekGrid
             days={orgPlan.days}
             todayIdx={todayIdx}
             nowMin={now.getHours() * 60 + now.getMinutes()}
+            editable={false}
             onEditBlock={() => {}}
             onAddBlockAt={() => {}}
             onMoveBlock={() => {}}

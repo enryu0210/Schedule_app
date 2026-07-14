@@ -169,6 +169,8 @@ export function OrgPlanEditor({ plan, todayIdx, nowMin, onSave }: Props) {
         days={draft.days}
         todayIdx={todayIdx}
         nowMin={nowMin}
+        // 이 화면은 관리자가 "고치려고" 들어온 편집기라 항상 편집 모드다.
+        editable
         onEditBlock={(dayIdx, block) => {
           setEditingDayIdx(dayIdx);
           setEditingBlock(block);

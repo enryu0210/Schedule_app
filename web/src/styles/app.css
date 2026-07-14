@@ -277,10 +277,34 @@
     display: block; position: fixed; inset: 0; z-index: 150;
     background: rgba(20, 20, 18, 0.35);
   }
+
+  /*
+   * 상단바 정리 — 폰에서는 가로 폭이 모자라 요소들이 서로를 밀어냈다.
+   * (로그아웃이 두 줄로 접히고, 사용자 이름은 "장…" 으로 잘리고, '공간' 라벨이 세로로 쪼개짐)
+   *
+   * 폭을 나눠 갖는 대신, 폰에서 값이 낮은 것부터 덜어낸다:
+   *   - '공간' 라벨:   옆의 선택 상자만 봐도 무엇인지 안다
+   *   - 위젯 내려받기: 데스크탑 전용 프로그램이라 폰에서는 눌러도 소용없다
+   *   - 사용자 이름:   로그인했다는 사실은 '로그아웃' 버튼이 이미 말해준다
+   */
+  .auth-row { flex-wrap: nowrap; gap: 6px; }
+  .workspace-switcher-label { display: none; }
+  .download-widget { display: none; }
+  .auth-name { display: none; }
+
+  /* 선택 상자가 남은 폭을 차지하되, 로그아웃 버튼을 밀어내지는 않게 한다. */
+  .workspace-switcher { min-width: 0; flex: 1; }
+  .workspace-select { width: 100%; min-width: 0; }
+
+  /* 버튼 글자가 두 줄로 접히지 않도록 (이것이 헤더가 세로로 부푼 직접 원인이었다) */
+  .auth-signout, .kakao-login { white-space: nowrap; flex-shrink: 0; }
 }
 
 /* ── 보기 방식 토글 (목록 / 시간표) ────────────────────────── */
-.view-row { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.view-row {
+  display: flex; justify-content: flex-end; align-items: center;
+  gap: 8px; margin-bottom: 14px;
+}
 .view-toggle {
   display: inline-flex; gap: 2px; padding: 3px;
   background: var(--card); border: 1px solid var(--border); border-radius: 10px;
@@ -290,6 +314,17 @@
   font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 7px;
 }
 .view-toggle-btn.active { background: var(--accent); color: #fff; }
+
+/* 시간표 편집 잠금 버튼. 켜져 있을 때(=일정이 바뀔 수 있을 때)만 눈에 띄게 한다.
+   "지금 건드리면 바뀐다"는 사실이 한눈에 보여야 실수를 막을 수 있다. */
+.edit-toggle {
+  border: 1px solid var(--border); background: var(--card); color: var(--text-secondary);
+  font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 9px;
+  white-space: nowrap;
+}
+.edit-toggle.on {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
 
 /* ── 그래프형(에브리타임식) 주간 시간표 ────────────────────── */
 .week-grid {
@@ -335,10 +370,17 @@
   border-radius: 6px; overflow: hidden; text-align: left;
   font-size: 11px; font-weight: 600; line-height: 1.25;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-  cursor: grab;
-  /* 터치로 블록을 끌 때 페이지가 같이 스크롤되지 않게 막는다 (모바일 드래그 필수) */
-  touch-action: none;
   user-select: none;
+  /* 보기 전용일 때는 블록 위에서도 손가락으로 화면을 넘길 수 있어야 한다.
+     touch-action 을 항상 none 으로 두었더니, 폰에서 블록을 짚고 스크롤하려 하면
+     화면이 꿈쩍도 하지 않았다(블록이 화면 대부분을 덮기 때문에 거의 항상 걸린다). */
+  cursor: default;
+  touch-action: pan-y;
+}
+/* 편집 모드에서만 드래그를 위해 스크롤을 포기한다. */
+.week-grid.editable .wg-block {
+  cursor: grab;
+  touch-action: none;
 }
 /* 드래그 중인 블록: 살짝 들어올린 느낌 + 커서 변경 */
 .wg-block.dragging {

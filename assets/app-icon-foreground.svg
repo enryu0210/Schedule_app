@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    안드로이드 "적응형 아이콘"의 전경 레이어 = 계획표 카드만 (배경 없음).
+
+    런처는 이 그림의 바깥쪽을 잘라낸다. 안전한 영역은 가운데 약 66% 뿐이라,
+    app-icon.svg 의 카드를 그대로 쓰면 모서리가 잘려 나간다.
+    그래서 같은 그림을 가운데 기준으로 0.9 배 줄여 안전 영역 안에 들여놓았다.
+    (카드 320px → 288px ≈ 아이콘 폭의 56%)
+  -->
+  <g transform="translate(256 256) scale(0.9) translate(-256 -256)">
+    <!-- 계획표 카드 (따뜻한 크림색) -->
+    <rect x="96" y="112" width="320" height="288" rx="40" fill="#fdf6ee"/>
+
+    <!-- 블록 1: 살구/허니 -->
+    <rect x="132" y="160" width="28" height="10" rx="5" fill="#d8c3ab"/>
+    <rect x="176" y="150" width="204" height="48" rx="14" fill="#fbe4cb"/>
+
+    <!-- 블록 2: 세이지 (지금 진행 중 - 왼쪽 테라코타 강조선) -->
+    <rect x="132" y="234" width="28" height="10" rx="5" fill="#d8c3ab"/>
+    <rect x="158" y="218" width="7" height="48" rx="3.5" fill="#c25f38"/>
+    <rect x="176" y="210" width="204" height="48" rx="14" fill="#e6ead1"/>
+
+    <!-- 블록 3: 더스티 로즈 -->
+    <rect x="132" y="294" width="28" height="10" rx="5" fill="#d8c3ab"/>
+    <rect x="176" y="270" width="204" height="48" rx="14" fill="#f7dcd7"/>
+  </g>
+</svg>

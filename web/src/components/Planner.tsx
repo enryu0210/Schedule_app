@@ -49,6 +49,15 @@ export function Planner({ onAddOrg }: Props) {
   // 보기 방식: 목록(차트형) / 시간표(그래프형). 기기별로 기억된다.
   const [viewMode, setViewMode] = useViewMode();
 
+  // 시간표(그래프) 뷰의 편집 잠금. 기본은 "보기"다.
+  //
+  // 폰에서는 화면을 스크롤하려고 블록에 손가락을 대는 것만으로 드래그가 시작돼
+  // 일정이 조용히 옮겨져 버렸다. 보다가 실수로 고쳐지는 쪽이, 고칠 때 버튼을
+  // 한 번 더 누르는 쪽보다 훨씬 나쁘다 → 편집은 명시적으로 켜야 하는 것으로 바꿨다.
+  //
+  // 일부러 저장하지 않는다(기억시키지 않는다). 화면을 다시 열면 항상 잠긴 상태에서 시작한다.
+  const [gridEditing, setGridEditing] = useState(false);
+
   // 모달/드로어 상태
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
   const [showBlockEditor, setShowBlockEditor] = useState(false);
@@ -252,10 +261,13 @@ export function Planner({ onAddOrg }: Props) {
     setShowBlockEditor(true);
   }
 
-  function handleDeleteBlock(blockId: string) {
+  // 실제로 지웠으면 true. 편집 모달에서 부를 때 "확인창에서 취소를 눌렀는데도 모달이 닫히는"
+  // 일을 막으려면, 지웠는지 여부를 호출한 쪽이 알아야 한다.
+  function handleDeleteBlock(blockId: string): boolean {
     // 상시 편집이라 실수로 지우는 것을 막기 위해 한 번 확인한다.
-    if (!window.confirm("이 블록을 삭제할까요?")) return;
+    if (!window.confirm("이 블록을 삭제할까요?")) return false;
     updateDayBlocks(currentPreset.id, (blocks) => blocks.filter((b) => b.id !== blockId));
+    return true;
   }
 
   // 빠른 추가: 시작 시각 + 이름만 받아 종료(=시작+1시간)/색상 기본값으로 블록을 만든다.
@@ -306,6 +318,17 @@ export function Planner({ onAddOrg }: Props) {
         </div>
 
         <div className="view-row">
+          {/* 편집 잠금 버튼은 시간표 뷰에서만 의미가 있다.
+              목록 뷰는 드래그가 없어 실수로 바뀔 일이 없기 때문이다. */}
+          {viewMode === "graph" && (
+            <button
+              className={"edit-toggle" + (gridEditing ? " on" : "")}
+              onClick={() => setGridEditing((v) => !v)}
+              aria-pressed={gridEditing}
+            >
+              {gridEditing ? "✓ 편집 중" : "✎ 편집"}
+            </button>
+          )}
           <ViewToggle value={viewMode} onChange={setViewMode} />
         </div>
 
@@ -350,12 +373,15 @@ export function Planner({ onAddOrg }: Props) {
               days={currentPreset.days}
               todayIdx={todayIdx}
               nowMin={nowMin}
+              editable={gridEditing}
               onEditBlock={handleGridEdit}
               onAddBlockAt={handleGridAdd}
               onMoveBlock={handleMoveBlock}
             />
             <div className="grid-hint">
-              블록을 끌어 옮기고, 위·아래 끝을 잡아 늘려보세요. 빈 칸을 누르면 새 블록이 추가돼요.
+              {gridEditing
+                ? "블록을 끌어 옮기고, 위·아래 끝을 잡아 늘려보세요. 빈 칸을 누르면 새 블록이 추가돼요."
+                : "보기 전용이에요. 고치려면 위의 '✎ 편집'을 누르세요."}
             </div>
           </>
         )}
@@ -367,6 +393,10 @@ export function Planner({ onAddOrg }: Props) {
           defaultStart={editorStart}
           onSave={handleSaveBlock}
           onCancel={closeBlockEditor}
+          // 시간표 뷰에는 줄마다 붙는 삭제 버튼이 없다 → 지우려면 이 모달뿐이다.
+          onDelete={(blockId) => {
+            if (handleDeleteBlock(blockId)) closeBlockEditor();
+          }}
         />
       )}
 
