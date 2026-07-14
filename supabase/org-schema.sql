@@ -41,6 +41,18 @@ create table if not exists public.org_members (
   primary key (org_id, user_id)
 );
 
+-- 가입 상태 (초대 링크 도입과 함께 추가).
+--   pending: 링크로 신청했지만 관리자가 아직 승인하지 않음 → **아무것도 못 본다**
+--   active : 승인됨 → 팀원 시간표를 보고, 자기 시간표를 공유할 수 있다
+--
+-- 왜 필요한가: 초대 링크는 그 링크를 아는 사람이면 누구나 들어올 수 있다.
+--   카톡방에 뿌린 링크가 밖으로 새면 모르는 사람이 팀 시간표를 본다.
+--   → '승인'을 통과해야 조직원으로 친다. 이 판정은 화면이 아니라 **RLS 가 한다**(is_org_member).
+alter table public.org_members
+  add column if not exists status text not null default 'active'
+  check (status in ('pending', 'active'));
+-- (기존 구성원은 이미 승인된 사람들이므로 default 'active' 가 맞다)
+
 -- ------------------------------------------------------------
 -- 3) 팀원이 조직에 '공유한' 시간표 (원본이 아니라 사본)
 --    한 사람이 한 조직에 하나만 공유한다 — 여러 개를 올리면 관리자가 무엇을 봐야 할지 모른다.
@@ -76,6 +88,9 @@ create table if not exists public.org_plans (
 --   (search_path 를 고정하는 이유: security definer 함수는 권한이 세서,
 --    search_path 를 안 박아두면 스키마 바꿔치기 공격의 통로가 된다)
 -- ============================================================
+-- 승인된(active) 구성원만 '조직원'으로 친다.
+-- 승인 대기(pending) 중인 사람은 이 함수가 false 를 돌려주므로,
+-- 팀원 시간표도 조직 시간표도 **읽을 수 없다**. 화면에서 숨기는 게 아니라 DB 가 막는다.
 create or replace function public.is_org_member(p_org uuid)
 returns boolean
 language sql
@@ -85,7 +100,7 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.org_members
-    where org_id = p_org and user_id = auth.uid()
+    where org_id = p_org and user_id = auth.uid() and status = 'active'
   );
 $$;
 
@@ -98,7 +113,22 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.org_members
-    where org_id = p_org and user_id = auth.uid() and role = 'admin'
+    where org_id = p_org and user_id = auth.uid()
+      and role = 'admin' and status = 'active'
+  );
+$$;
+
+-- 승인 대기 중인 내 신청. 조직 '이름' 정도는 보여줘야 사용자가 무엇을 기다리는지 안다.
+create or replace function public.is_org_pending(p_org uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.org_members
+    where org_id = p_org and user_id = auth.uid() and status = 'pending'
   );
 $$;
 
@@ -111,11 +141,13 @@ alter table public.org_shared_schedules enable row level security;
 alter table public.org_plans           enable row level security;
 
 -- --- organizations ---
--- 조회: 내가 속한 조직만. (초대 코드로 가입하는 경로는 아래 join_org 함수가 따로 처리한다)
+-- 조회: 내가 속한 조직 + 내가 승인 대기 중인 조직.
+-- (대기 중이어도 조직 '이름'은 보여야 무엇을 기다리는지 안다. 시간표는 여전히 못 본다)
+-- 초대 코드로 가입하는 경로는 아래 join_org 함수가 따로 처리한다.
 drop policy if exists "내 조직 조회" on public.organizations;
 create policy "내 조직 조회"
   on public.organizations for select
-  using (public.is_org_member(id));
+  using (public.is_org_member(id) or public.is_org_pending(id));
 
 -- 수정(이름 변경 등)은 관리자만.
 drop policy if exists "조직 수정은 관리자만" on public.organizations;
@@ -130,10 +162,11 @@ create policy "조직 수정은 관리자만"
 
 -- --- org_members ---
 -- 같은 조직 사람끼리는 서로가 누구인지 보인다. (겹쳐보기 화면에 이름을 띄워야 한다)
+-- 내 행은 언제나 보인다 — 승인 대기 중인 사람이 자기 상태('나 아직 대기중')를 알아야 하기 때문이다.
 drop policy if exists "같은 조직원 조회" on public.org_members;
 create policy "같은 조직원 조회"
   on public.org_members for select
-  using (public.is_org_member(org_id));
+  using (public.is_org_member(org_id) or user_id = auth.uid());
 
 -- 내보내기는 관리자, 나가기는 본인.
 drop policy if exists "구성원 삭제" on public.org_members;
@@ -141,12 +174,17 @@ create policy "구성원 삭제"
   on public.org_members for delete
   using (public.is_org_admin(org_id) or user_id = auth.uid());
 
--- 역할 변경은 관리자만. 본인 이름(display_name) 변경은 본인도 가능.
+-- 구성원 행 수정(승인 / 역할 변경)은 **관리자만**.
+--
+-- 본인 수정을 열어두면 안 된다(실제로 뚫릴 뻔했다):
+--   'user_id = auth.uid()' 를 허용하면 **승인 대기자가 자기 status 를 active 로 바꿔
+--   스스로를 승인**할 수 있다. 그러면 승인 절차가 통째로 무의미해진다.
+--   본인이 바꿀 수 있어야 하는 것은 이름뿐이므로, 그것만 아래 RPC(set_my_display_name)로 연다.
 drop policy if exists "구성원 수정" on public.org_members;
 create policy "구성원 수정"
   on public.org_members for update
-  using (public.is_org_admin(org_id) or user_id = auth.uid())
-  with check (public.is_org_admin(org_id) or user_id = auth.uid());
+  using (public.is_org_admin(org_id))
+  with check (public.is_org_admin(org_id));
 
 -- --- org_shared_schedules ---
 -- 조회: 같은 조직 사람이면 볼 수 있다. (이게 이 기능의 핵심 — 여기서만 벽이 열린다)
@@ -217,9 +255,9 @@ begin
   values (trim(p_name), auth.uid())
   returning * into new_org;
 
-  -- 만든 사람이 곧 관리자다.
-  insert into public.org_members (org_id, user_id, role, display_name)
-  values (new_org.id, auth.uid(), 'admin', coalesce(nullif(trim(p_display_name), ''), '관리자'));
+  -- 만든 사람이 곧 관리자다. (자기 조직이므로 승인 대기 없이 바로 active)
+  insert into public.org_members (org_id, user_id, role, display_name, status)
+  values (new_org.id, auth.uid(), 'admin', coalesce(nullif(trim(p_display_name), ''), '관리자'), 'active');
 
   return new_org;
 end;
@@ -246,12 +284,53 @@ begin
     raise exception '초대 코드가 올바르지 않습니다.';
   end if;
 
-  -- 이미 가입돼 있으면 조용히 그 조직을 돌려준다. (두 번 눌러도 에러가 나지 않게)
-  insert into public.org_members (org_id, user_id, role, display_name)
-  values (target_org.id, auth.uid(), 'member', coalesce(nullif(trim(p_display_name), ''), '팀원'))
+  -- 초대 링크/코드로 들어온 사람은 곧바로 조직원이 되지 않는다. **관리자 승인 대기** 상태로 넣는다.
+  -- 링크는 아는 사람이면 누구나 쓸 수 있어서(카톡방 링크가 밖으로 샐 수 있다),
+  -- 승인을 거치지 않으면 모르는 사람이 팀 시간표를 보게 된다.
+  --
+  -- 이미 가입/신청돼 있으면 조용히 넘어간다(두 번 눌러도 에러가 나지 않게).
+  -- 특히 do nothing 이 중요하다 — 이미 active 인 사람이 링크를 다시 눌렀을 때
+  -- 상태가 pending 으로 되돌아가면 멀쩡한 조직원이 쫓겨난다.
+  insert into public.org_members (org_id, user_id, role, display_name, status)
+  values (target_org.id, auth.uid(), 'member',
+          coalesce(nullif(trim(p_display_name), ''), '팀원'), 'pending')
   on conflict (org_id, user_id) do nothing;
 
   return target_org;
+end;
+$$;
+
+-- 관리자가 가입 신청을 승인한다.
+-- (거절은 그냥 행을 지우면 된다 — delete 정책이 관리자에게 열려 있다)
+create or replace function public.approve_member(p_org uuid, p_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_org_admin(p_org) then
+    raise exception '관리자만 승인할 수 있습니다.';
+  end if;
+
+  update public.org_members
+  set status = 'active'
+  where org_id = p_org and user_id = p_user;
+end;
+$$;
+
+-- 조직 안에서 쓸 내 이름 바꾸기.
+-- 구성원 행의 직접 수정은 관리자에게만 열려 있으므로(셀프 승인 방지), 이름만 이 함수로 연다.
+create or replace function public.set_my_display_name(p_org uuid, p_display_name text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.org_members
+  set display_name = coalesce(nullif(trim(p_display_name), ''), display_name)
+  where org_id = p_org and user_id = auth.uid();
 end;
 $$;
 

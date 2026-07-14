@@ -74,12 +74,16 @@ export async function joinOrg(
   return { id: row.id, name: row.name, inviteCode: row.invite_code };
 }
 
-/** 조직 구성원 목록. 겹쳐보기 화면에서 "누구의 시간표인지" 이름을 붙이는 데 쓴다. */
+/**
+ * 조직 구성원 목록. 겹쳐보기 화면에서 "누구의 시간표인지" 이름을 붙이는 데 쓴다.
+ * 승인 대기(pending) 중인 신청자도 함께 온다 — 관리자가 승인/거절해야 하기 때문이다.
+ * (단, 내가 승인 대기 중이라면 RLS 때문에 내 행 하나만 보인다)
+ */
 export async function fetchOrgMembers(orgId: string): Promise<OrgMember[]> {
   const client = requireClient();
   const { data, error } = await client
     .from("org_members")
-    .select("user_id, role, display_name")
+    .select("user_id, role, display_name, status")
     .eq("org_id", orgId);
 
   if (error) throw error;
@@ -87,7 +91,35 @@ export async function fetchOrgMembers(orgId: string): Promise<OrgMember[]> {
     userId: row.user_id as string,
     role: row.role as OrgMember["role"],
     displayName: row.display_name as string,
+    status: row.status as OrgMember["status"],
   }));
+}
+
+/** 관리자가 가입 신청을 승인한다. */
+export async function approveMember(
+  orgId: string,
+  userId: string
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc("approve_member", {
+    p_org: orgId,
+    p_user: userId,
+  });
+  if (error) throw error;
+}
+
+/** 관리자가 가입 신청을 거절하거나, 구성원을 내보낸다. (행을 지운다) */
+export async function removeMember(
+  orgId: string,
+  userId: string
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client
+    .from("org_members")
+    .delete()
+    .eq("org_id", orgId)
+    .eq("user_id", userId);
+  if (error) throw error;
 }
 
 /** 조직원들이 공유한 시간표 전부. (공유하지 않은 사람은 아예 행이 없다) */

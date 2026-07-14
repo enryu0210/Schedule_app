@@ -818,3 +818,38 @@
   background: var(--pink-fill);
   color: var(--pink-text);
 }
+
+/* --- 초대 링크 / 가입 승인 --- */
+.invite-msg {
+  color: var(--teal-text);
+  font-size: 12px;
+}
+/* 가입 신청은 눈에 띄어야 한다 — 묻히면 신청자가 하염없이 기다린다. */
+.org-pending {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+}
+.org-pending h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--accent);
+}
+.org-pending ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.org-pending li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  font-size: 14px;
+}
+.org-pending li span {
+  flex: 1;
+  min-width: 0;
+}

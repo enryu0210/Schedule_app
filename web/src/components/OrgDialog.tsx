@@ -13,14 +13,18 @@ type Tab = "create" | "join";
 
 interface Props {
   onClose: () => void;
+  // 초대 링크(?join=CODE)로 들어온 경우 코드가 미리 채워진다.
+  // 링크를 눌렀는데 코드를 또 입력하라고 하면 링크를 만든 의미가 없다.
+  initialInviteCode?: string;
 }
 
-export function OrgDialog({ onClose }: Props) {
+export function OrgDialog({ onClose, initialInviteCode }: Props) {
   const { createOrg, joinOrg } = useOrg();
 
-  const [tab, setTab] = useState<Tab>("create");
+  // 초대 링크로 들어왔다면 곧바로 '참여' 탭에서 시작한다.
+  const [tab, setTab] = useState<Tab>(initialInviteCode ? "join" : "create");
   const [orgName, setOrgName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(initialInviteCode ?? "");
   const [displayName, setDisplayName] = useState("");
   // 서버 왕복 중 버튼을 두 번 눌러 조직이 두 개 생기는 사고를 막는다.
   const [busy, setBusy] = useState(false);
@@ -107,6 +111,14 @@ export function OrgDialog({ onClose }: Props) {
             />
           </label>
 
+          {/* 링크만 누르면 바로 들어가는 게 아니라는 걸 미리 알려준다.
+              아무 설명 없이 '대기 중' 화면이 뜨면 고장 난 줄 안다. */}
+          {tab === "join" && (
+            <p className="org-hint">
+              참여를 신청하면 <b>관리자 승인 후</b> 팀 시간표를 볼 수 있습니다.
+            </p>
+          )}
+
           {error && <div className="org-error">{error}</div>}
 
           <div className="modal-actions">
@@ -114,7 +126,7 @@ export function OrgDialog({ onClose }: Props) {
               취소
             </button>
             <button type="submit" className="btn primary" disabled={busy}>
-              {busy ? "처리 중…" : tab === "create" ? "조직 만들기" : "참여하기"}
+              {busy ? "처리 중…" : tab === "create" ? "조직 만들기" : "참여 신청"}
             </button>
           </div>
         </form>

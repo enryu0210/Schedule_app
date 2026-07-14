@@ -33,6 +33,7 @@ import type {
   Workspace,
 } from "../types";
 import {
+  approveMember as approveMemberApi,
   createOrg as createOrgApi,
   fetchMyOrgs,
   fetchOrgMembers,
@@ -40,6 +41,7 @@ import {
   fetchSharedSchedules,
   joinOrg as joinOrgApi,
   publishOrgPlan,
+  removeMember as removeMemberApi,
   shareMySchedule,
   unshareMySchedule,
 } from "../lib/orgStorage";
@@ -72,6 +74,9 @@ interface OrgContextValue {
   orgPlan: Preset | null;
   myRole: OrgRole | null;
   isAdmin: boolean;
+  // 초대 링크로 신청했지만 관리자 승인 전인 상태. 이때는 조직의 어떤 시간표도 보이지 않는다.
+  isPending: boolean;
+  pendingMembers: OrgMember[];
   mySharedSchedule: Preset | null;
   loading: boolean;
   error: string | null;
@@ -80,6 +85,8 @@ interface OrgContextValue {
   shareSchedule: (preset: Preset) => Promise<void>;
   unshareSchedule: () => Promise<void>;
   publishPlan: (schedule: Preset) => Promise<void>;
+  approve: (userId: string) => Promise<void>;
+  remove: (userId: string) => Promise<void>;
   reloadCurrentOrg: () => Promise<void>;
 }
 
@@ -121,9 +128,13 @@ function useOrgState(): OrgContextValue {
 
   const currentOrgId = workspace.kind === "org" ? workspace.orgId : null;
   const currentOrg = orgs.find((o) => o.id === currentOrgId) ?? null;
-  const myRole =
-    members.find((m) => m.userId === user?.id)?.role ?? null;
-  const isAdmin = myRole === "admin";
+  const me = members.find((m) => m.userId === user?.id) ?? null;
+  const myRole = me?.role ?? null;
+  // 승인 대기 중이면 관리자여도 아무 권한이 없다(애초에 RLS 가 데이터를 안 준다).
+  const isPending = me?.status === "pending";
+  const isAdmin = myRole === "admin" && !isPending;
+  // 관리자가 처리해야 할 가입 신청들.
+  const pendingMembers = members.filter((m) => m.status === "pending");
   const mySharedSchedule =
     sharedSchedules.find((s) => s.userId === user?.id)?.schedule ?? null;
 
@@ -293,6 +304,26 @@ function useOrgState(): OrgContextValue {
     await reloadCurrentOrg();
   }, [user?.id, currentOrgId, reloadCurrentOrg]);
 
+  // 관리자가 가입 신청을 승인한다.
+  const approve = useCallback(
+    async (userId: string) => {
+      if (!currentOrgId) return;
+      await approveMemberApi(currentOrgId, userId);
+      await reloadCurrentOrg();
+    },
+    [currentOrgId, reloadCurrentOrg]
+  );
+
+  // 관리자가 가입 신청을 거절하거나 구성원을 내보낸다.
+  const remove = useCallback(
+    async (userId: string) => {
+      if (!currentOrgId) return;
+      await removeMemberApi(currentOrgId, userId);
+      await reloadCurrentOrg();
+    },
+    [currentOrgId, reloadCurrentOrg]
+  );
+
   // 관리자가 조직 공용 시간표를 배포한다.
   const publishPlan = useCallback(
     async (schedule: Preset) => {
@@ -313,6 +344,8 @@ function useOrgState(): OrgContextValue {
     orgPlan,
     myRole,
     isAdmin,
+    isPending,
+    pendingMembers,
     mySharedSchedule,
     loading,
     error,
@@ -321,6 +354,8 @@ function useOrgState(): OrgContextValue {
     shareSchedule,
     unshareSchedule,
     publishPlan,
+    approve,
+    remove,
     reloadCurrentOrg,
   };
 }

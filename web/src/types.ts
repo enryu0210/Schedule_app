@@ -50,6 +50,11 @@ export interface Preset {
 // - member: 자기 시간표를 공유하고, 배포된 시간표를 본다
 export type OrgRole = "admin" | "member";
 
+// 가입 상태.
+// - pending: 초대 링크로 신청했지만 관리자 승인 전 → 조직의 어떤 시간표도 못 본다(RLS 가 막는다)
+// - active:  승인된 조직원
+export type OrgMemberStatus = "pending" | "active";
+
 export interface Organization {
   id: string;
   name: string;
@@ -61,6 +66,7 @@ export interface OrgMember {
   userId: string;
   role: OrgRole;
   displayName: string;
+  status: OrgMemberStatus;
 }
 
 // 팀원이 조직에 공유한 시간표(사본). 개인 프리셋 원본이 아니다.

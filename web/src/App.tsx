@@ -7,7 +7,7 @@
  *     개인 계획표(Planner) / 조직 워크스페이스(OrgWorkspace)
  *   이 갈림이 곧 프라이버시 경계선이다 — 개인 프리셋은 조직에 절대 보이지 않는다.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { OrgProvider, useOrg } from "./hooks/useOrg";
 import { LoginScreen } from "./components/LoginScreen";
@@ -15,6 +15,7 @@ import { OrgDialog } from "./components/OrgDialog";
 import { OrgWorkspace } from "./components/OrgWorkspace";
 import { Planner } from "./components/Planner";
 import { WidgetView } from "./components/WidgetView";
+import { clearInviteCodeFromUrl, readInviteCodeFromUrl } from "./lib/inviteLink";
 import { isWidgetMode } from "./lib/widgetMode";
 
 export default function App() {
@@ -50,6 +51,26 @@ function Workspace() {
   const { workspace } = useOrg();
   // 조직 만들기/참여 모달은 두 화면 어디서나 열 수 있어야 해서 여기서 관리한다.
   const [showOrgDialog, setShowOrgDialog] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+
+  // 초대 링크(?join=CODE)로 들어왔다면 참여 모달을 코드가 채워진 채로 연다.
+  //
+  // 코드만 보고 바로 가입시키지 않는 이유: 조직에서 쓸 이름을 받아야 한다.
+  // 이름 없이 넣으면 겹쳐보기 화면에서 관리자가 누가 누군지 알 수 없다.
+  //
+  // 처리한 뒤 주소에서 코드를 지운다. 남겨두면 새로고침할 때마다 모달이 다시 뜬다.
+  useEffect(() => {
+    const code = readInviteCodeFromUrl();
+    if (!code) return;
+    setInviteCode(code);
+    setShowOrgDialog(true);
+    clearInviteCodeFromUrl();
+  }, []);
+
+  function closeOrgDialog() {
+    setShowOrgDialog(false);
+    setInviteCode(null);
+  }
 
   return (
     <>
@@ -59,7 +80,12 @@ function Workspace() {
         <Planner onAddOrg={() => setShowOrgDialog(true)} />
       )}
 
-      {showOrgDialog && <OrgDialog onClose={() => setShowOrgDialog(false)} />}
+      {showOrgDialog && (
+        <OrgDialog
+          onClose={closeOrgDialog}
+          initialInviteCode={inviteCode ?? undefined}
+        />
+      )}
     </>
   );
 }

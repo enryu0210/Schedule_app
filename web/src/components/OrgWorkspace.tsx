@@ -17,6 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNow } from "../hooks/useNow";
 import { useOrg } from "../hooks/useOrg";
 import { usePresetStore } from "../hooks/usePresetStore";
+import { shareInviteLink } from "../lib/inviteLink";
 import { jsDayToMondayIndex } from "../lib/time";
 import { AuthBar } from "./AuthBar";
 import { OrgPlanEditor } from "./OrgPlanEditor";
@@ -40,12 +41,16 @@ export function OrgWorkspace({ onAddOrg }: Props) {
     sharedSchedules,
     orgPlan,
     isAdmin,
+    isPending,
+    pendingMembers,
     mySharedSchedule,
     loading,
     error,
     shareSchedule,
     unshareSchedule,
     publishPlan,
+    approve,
+    remove,
   } = useOrg();
 
   // 공유/배포할 후보는 "내 개인 프리셋"이다. 읽기 용도로만 쓴다(여기서 개인 프리셋을 고치지 않는다).
@@ -57,6 +62,8 @@ export function OrgWorkspace({ onAddOrg }: Props) {
   const [tab, setTab] = useState<Tab>("overlap");
   const [pickedPresetId, setPickedPresetId] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  // 초대 링크를 어떻게 처리했는지 알려주는 짧은 메시지(공유됨 / 복사됨).
+  const [inviteMsg, setInviteMsg] = useState<string>("");
 
   // 고른 조직이 목록에 없다 = 탈퇴했거나 조직이 지워졌는데 선택값만 남은 경우.
   // 빈 화면을 보여주면 사용자는 앱이 고장 난 줄 안다. 개인 공간으로 돌아갈 길을 준다.
@@ -88,8 +95,39 @@ export function OrgWorkspace({ onAddOrg }: Props) {
     );
   }
 
+  // 승인 대기 중: 조직의 어떤 시간표도 보이지 않는다(RLS 가 애초에 주지 않는다).
+  // 아무 설명 없이 빈 화면을 보여주면 고장 난 줄 아니까, 무엇을 기다리는지 분명히 말한다.
+  if (isPending) {
+    return (
+      <div className="wrap">
+        <div className="auth-row">
+          <WorkspaceSwitcher onAddOrg={onAddOrg} />
+          <AuthBar />
+        </div>
+        <div className="empty-state">
+          <div className="empty-state-emoji">⏳</div>
+          <h2>승인을 기다리는 중이에요</h2>
+          <p>
+            <b>{currentOrg.name}</b> 관리자가 참여를 승인하면
+            <br />
+            팀 시간표를 볼 수 있습니다.
+          </p>
+          <button
+            className="btn"
+            onClick={() => setWorkspace({ kind: "personal" })}
+          >
+            개인 계획표로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const pickedPreset =
     presets.find((p) => p.id === pickedPresetId) ?? presets[0] ?? null;
+
+  // 승인된 사람들만 '구성원'이다. 겹쳐보기의 분모(전체 N명)도 이 기준이어야 한다.
+  const activeMembers = members.filter((m) => m.status === "active");
 
   // 서버 왕복 중 버튼 연타로 같은 작업이 두 번 나가는 것을 막는다.
   async function run(action: () => Promise<void>, failMessage: string) {
@@ -121,16 +159,65 @@ export function OrgWorkspace({ onAddOrg }: Props) {
         </h1>
         {isAdmin && (
           <div className="invite-code">
-            초대 코드 <code>{currentOrg.inviteCode}</code>
             <button
-              className="btn tiny"
-              onClick={() => navigator.clipboard?.writeText(currentOrg.inviteCode)}
+              className="btn primary"
+              onClick={async () => {
+                const result = await shareInviteLink(
+                  currentOrg.name,
+                  currentOrg.inviteCode
+                );
+                setInviteMsg(
+                  result === "shared"
+                    ? ""
+                    : result === "copied"
+                    ? "초대 링크를 복사했어요. 카카오톡에 붙여넣으세요."
+                    : "복사에 실패했어요. 아래 코드를 직접 알려주세요."
+                );
+              }}
             >
-              복사
+              카카오톡으로 초대
             </button>
+            <span>
+              또는 코드 <code>{currentOrg.inviteCode}</code>
+            </span>
+            {inviteMsg && <span className="invite-msg">{inviteMsg}</span>}
           </div>
         )}
       </div>
+
+      {/* 관리자: 처리해야 할 가입 신청.
+          링크는 아는 사람이면 누구나 쓸 수 있으므로, 승인을 거쳐야 조직원이 된다.
+          목록 맨 위에 둔다 — 아래에 묻히면 신청자는 하염없이 기다린다. */}
+      {isAdmin && pendingMembers.length > 0 && (
+        <section className="org-pending">
+          <h2>참여 신청 {pendingMembers.length}건</h2>
+          <ul>
+            {pendingMembers.map((m) => (
+              <li key={m.userId}>
+                <span>{m.displayName || "이름 없음"}</span>
+                <button
+                  className="btn primary tiny"
+                  disabled={busy}
+                  onClick={() =>
+                    run(() => approve(m.userId), "승인에 실패했습니다.")
+                  }
+                >
+                  승인
+                </button>
+                <button
+                  className="btn tiny"
+                  disabled={busy}
+                  onClick={() =>
+                    run(() => remove(m.userId), "거절에 실패했습니다.")
+                  }
+                >
+                  거절
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* 읽기 실패를 조용히 넘기지 않는다.
           공유된 시간표가 안 보이는 게 "안 냈다"인지 "못 읽었다"인지 구분되지 않으면
@@ -221,7 +308,7 @@ export function OrgWorkspace({ onAddOrg }: Props) {
         <div className="loading-hint">불러오는 중…</div>
       ) : tab === "overlap" ? (
         <TeamOverlapGrid
-          members={members}
+          members={activeMembers}
           sharedSchedules={sharedSchedules}
           todayIdx={todayIdx}
         />
@@ -256,9 +343,11 @@ export function OrgWorkspace({ onAddOrg }: Props) {
       )}
 
       <div className="org-members">
-        <h2>구성원 {members.length}명</h2>
+        {/* 승인 대기자는 여기 세지 않는다. 아직 조직원이 아니고, 시간표도 못 낸다.
+            숫자에 섞으면 '몇 명이 공유했나'가 실제보다 나빠 보인다. */}
+        <h2>구성원 {activeMembers.length}명</h2>
         <ul>
-          {members.map((m) => {
+          {activeMembers.map((m) => {
             const shared = sharedSchedules.some((s) => s.userId === m.userId);
             return (
               <li key={m.userId}>
