@@ -24,6 +24,28 @@ if (-not (Test-Path $propsPath)) {
 }
 
 # 웹 코드를 APK 안에 번들하므로, 배포 빌드는 항상 최신 웹으로 다시 굽는다.
+#
+# 그 전에 Supabase 키가 있는지 먼저 본다. 키가 없어도 웹 빌드는 **성공한다** —
+# 앱이 조용히 "로컬 전용 모드"로 떨어질 뿐이다(supabaseClient.ts). 그대로 구우면
+# 겉보기엔 멀쩡한데 열어보면 "로그인 기능이 아직 설정되지 않았습니다"만 뜨는 APK 가 나온다.
+# .env 는 git 에 안 올라가므로 **PC 를 옮기면 반드시 이 일이 벌어진다**(실제로 겪음).
+$envPath = Join-Path $script:RepoRoot 'web\.env'
+$envText = if (Test-Path $envPath) { [System.IO.File]::ReadAllText($envPath) } else { '' }
+if ($envText -notmatch '(?m)^\s*VITE_SUPABASE_URL\s*=\s*\S' -or
+    $envText -notmatch '(?m)^\s*VITE_SUPABASE_ANON_KEY\s*=\s*\S') {
+    throw @"
+web\.env 에 Supabase 키가 없습니다. 이대로 구우면 로그인이 안 되는 APK 가 나옵니다.
+
+    $envPath
+
+여기에 아래 두 줄을 채워 주세요 (web\.env.example 참고).
+값은 Supabase 대시보드 → Project Settings → API 에 있습니다.
+
+    VITE_SUPABASE_URL=https://<프로젝트>.supabase.co
+    VITE_SUPABASE_ANON_KEY=<anon / public 키>
+"@
+}
+
 Write-Host "`n[1/3] 웹 빌드 + 안드로이드로 복사..." -ForegroundColor Cyan
 Push-Location (Join-Path $script:RepoRoot 'mobile')
 try { npm run sync; if ($LASTEXITCODE -ne 0) { throw "npm run sync 실패" } } finally { Pop-Location }
