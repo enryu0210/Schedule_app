@@ -28,11 +28,13 @@ tauri-plugin-updater = "2"
 tauri-plugin-dialog = "2"
 
 # Win+D(바탕화면 보기)를 무시하려면 창 메시지를 직접 가로채야 해서 Win32 API 를 쓴다.
+# Accessibility: 바탕화면이 앞으로 나오는 순간을 잡는 SetWinEventHook 이 여기 있다.
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Shell",
+  "Win32_UI_Accessibility",
 ] }
 
 # 웹뷰의 우클릭 메뉴/브라우저 단축키를 끄려면 WebView2 설정에 직접 접근해야 한다.
