@@ -3,10 +3,13 @@
   홈 위젯 화면 — "지금 하는 일정".
 
   위젯 레이아웃은 RemoteViews 로 그려지므로 **쓸 수 있는 뷰가 제한**된다
-  (ConstraintLayout·커스텀 뷰 불가). LinearLayout + TextView + ProgressBar 로만 짠다.
+  (ConstraintLayout·커스텀 뷰 불가). LinearLayout + TextView + ProgressBar + Chronometer 로만 짠다.
 
-  화면 구성은 알림(ScheduleNotifier)과 일부러 똑같이 맞췄다 —
-  같은 정보가 알림과 위젯에서 다르게 보이면 사용자는 둘 중 뭘 믿어야 할지 모른다.
+  ★ 남은 시간은 Chronometer(카운트다운 모드)로 띄운다.
+    처음엔 "1시간 19분 남음"을 TextView 에 계산해 넣었는데, 이 숫자는 1분마다 바뀌는 반면
+    위젯을 다시 그리는 건 알람이 울릴 때(최대 15분, 실제로는 절전 때문에 20분 넘게 밀렸다)뿐이라
+    **화면에 20분 낡은 값이 박혀 있었다.** 사용자 눈에는 위젯이 멈춘 것으로 보인다.
+    Chronometer 는 **뷰가 스스로 매초 줄어든다** — 우리가 폰을 깨울 필요가 없다.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -41,17 +44,31 @@
         android:ellipsize="end"
         android:text="지금은 비어 있어요" />
 
-    <!-- "17:00 까지 · 2시간 10분 남음" -->
-    <TextView
-        android:id="@+id/widget_meta"
+    <!-- "22:00 까지 · [1:09:23] 남음" — 앞은 고정 텍스트, 뒤는 스스로 줄어드는 카운트다운 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:textSize="12sp"
-        android:textColor="#8A7C6D"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:text="" />
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_meta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#8A7C6D"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="" />
+
+        <Chronometer
+            android:id="@+id/widget_countdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#8A7C6D"
+            android:maxLines="1" />
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/widget_progress"

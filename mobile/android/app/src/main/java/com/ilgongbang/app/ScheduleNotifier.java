@@ -62,7 +62,6 @@ public class ScheduleNotifier {
                 .setSmallIcon(R.drawable.ic_stat_schedule)
                 .setOngoing(true)          // 밀어서 지울 수 없다 — '상시'의 핵심
                 .setSilent(true)
-                .setShowWhen(false)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // 잠금화면에도 내용을 보여준다
@@ -75,12 +74,20 @@ public class ScheduleNotifier {
             builder.setContentTitle(current.label)
                     .setContentText(subtitleFor(current, next, now))
                     // 진행률 막대가 본문 줄을 덮어버리기 때문에, 접힌 상태에서는 contentText 가 안 보인다.
-                    // 가장 중요한 정보(얼마나 남았나)를 헤더 줄(subText)에 올려 접혀 있어도 보이게 한다.
-                    .setSubText(humanMinutes(remain) + " 남음")
+                    // 그래서 끝나는 시각을 헤더 줄(subText)에 올려 접혀 있어도 보이게 한다.
+                    .setSubText(ScheduleStore.toHHMM(current.endAbs) + " 까지")
+                    // 남은 시간은 **알림이 스스로 매초 줄인다**(시각 자리에 카운트다운으로 뜬다).
+                    // 예전에는 "1시간 19분 남음"을 글자로 박아 넣었는데, 알림을 다시 그리는 건
+                    // 알람이 울릴 때뿐이라(절전 때문에 20분 넘게 밀린다) 값이 그대로 낡아버렸다.
+                    .setShowWhen(true)
+                    .setWhen(System.currentTimeMillis() + ScheduleStore.remainMillis(remain))
+                    .setUsesChronometer(true)
+                    .setChronometerCountDown(true)
                     // 진행률 막대. Now Bar 같은 '진행 중' UI 로 승격될 여지를 준다.
                     .setProgress(current.durationMin(), Math.max(0, elapsed), false);
         } else {
             builder.setContentTitle("지금은 비어 있어요")
+                    .setShowWhen(false)
                     .setContentText(next == null
                             ? "등록된 일정이 없습니다"
                             : "다음 · " + next.label + " " + ScheduleStore.toHHMM(next.startAbs))
@@ -94,27 +101,20 @@ public class ScheduleNotifier {
         }
     }
 
-    /** "17:00 까지 · 2시간 12분 남음 · 다음 유튜브편집" */
+    /**
+     * "07:30 ~ 17:00 · 다음 유튜브편집"
+     *
+     * 여기에 "몇 분 남음"을 넣지 않는다 — 그 숫자는 1분마다 바뀌는데 알림을 다시 그리는 건
+     * 알람이 울릴 때뿐이라 반드시 낡는다. 남은 시간은 카운트다운(setUsesChronometer)이 맡는다.
+     */
     private static String subtitleFor(ScheduleStore.Block current, ScheduleStore.Block next, int now) {
         StringBuilder sb = new StringBuilder();
         sb.append(ScheduleStore.toHHMM(current.startAbs))
           .append(" ~ ")
-          .append(ScheduleStore.toHHMM(current.endAbs))
-          .append(" · ")
-          .append(humanMinutes(ScheduleStore.minutesUntilEnd(current, now)))
-          .append(" 남음");
+          .append(ScheduleStore.toHHMM(current.endAbs));
 
         if (next != null) sb.append(" · 다음 ").append(next.label);
         return sb.toString();
-    }
-
-    /** 135 → "2시간 15분", 45 → "45분" */
-    private static String humanMinutes(int minutes) {
-        int h = minutes / 60;
-        int m = minutes % 60;
-        if (h > 0 && m > 0) return h + "시간 " + m + "분";
-        if (h > 0) return h + "시간";
-        return m + "분";
     }
 
     /** 알림을 누르면 앱을 연다. */

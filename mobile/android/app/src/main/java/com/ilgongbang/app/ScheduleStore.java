@@ -157,6 +157,17 @@ public class ScheduleStore {
         }
     }
 
+    /**
+     * "몇 분 남았나"를 **밀리초**로 바꾼다. 알림·위젯의 카운트다운(Chronometer)에 쓴다.
+     *
+     * nowAbs() 는 시각을 분 단위로 자르므로, 남은 분에는 "이번 분에서 이미 지난 초"가 포함돼 있다.
+     * 그대로 카운트다운을 걸면 최대 59초만큼 늦게 끝난다 → 지난 초를 빼서 보정한다.
+     */
+    public static long remainMillis(int remainMinutes) {
+        int secondsPastMinute = Calendar.getInstance().get(Calendar.SECOND);
+        return remainMinutes * 60_000L - secondsPastMinute * 1000L;
+    }
+
     /** 지금이 주 시작(월요일 00:00)부터 몇 분째인지. */
     public static int nowAbs() {
         Calendar cal = Calendar.getInstance();

@@ -6,6 +6,9 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
+import android.os.SystemClock;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import java.util.List;
@@ -103,21 +106,53 @@ public class ScheduleWidget extends AppWidgetProvider {
             int elapsed = current.durationMin() - remain;
 
             views.setTextViewText(R.id.widget_title, current.label);
-            views.setTextViewText(R.id.widget_meta,
-                    ScheduleStore.toHHMM(current.endAbs) + " 까지 · " + humanMinutes(remain) + " 남음");
+            views.setTextViewText(R.id.widget_meta, ScheduleStore.toHHMM(current.endAbs) + " 까지 · ");
             views.setProgressBar(R.id.widget_progress,
                     Math.max(1, current.durationMin()), Math.max(0, elapsed), false);
+
+            // 남은 시간은 **뷰가 스스로 매초 줄인다.** 우리가 다시 그리는 건 알람이 울릴 때뿐이라
+            // (절전 때문에 20분 넘게 밀리기도 한다) 계산한 숫자를 박아두면 그대로 낡아버린다.
+            startCountdown(views, ScheduleStore.remainMillis(remain));
         } else {
             views.setTextViewText(R.id.widget_title, "지금은 비어 있어요");
             views.setTextViewText(R.id.widget_meta, "");
             views.setProgressBar(R.id.widget_progress, 100, 0, false);
+            stopCountdown(views);
         }
 
         views.setTextViewText(R.id.widget_next, nextText(next, now));
         return views;
     }
 
-    /** "다음 · 유튜브편집 18:00 (2시간 뒤)" — 다음 일정이 없으면 빈 줄. */
+    /**
+     * 끝날 때까지 스스로 줄어드는 카운트다운을 건다.
+     *
+     * Chronometer 의 base 는 **elapsedRealtime 기준**이다(벽시계가 아니라 부팅 후 경과 시간) —
+     * 사용자가 시계를 바꿔도 카운트다운이 틀어지지 않는다.
+     */
+    private static void startCountdown(RemoteViews views, long remainMillis) {
+        views.setViewVisibility(R.id.widget_countdown, View.VISIBLE);
+        views.setChronometer(
+                R.id.widget_countdown,
+                SystemClock.elapsedRealtime() + Math.max(0, remainMillis),
+                "%s 남음",
+                true
+        );
+        // 카운트다운(줄어듦)은 API 24+. 그 아래에서는 이 호출이 없으니 '늘어나는' 시계가 되어
+        // 오히려 헷갈린다 → 아예 숨긴다.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            views.setChronometerCountDown(R.id.widget_countdown, true);
+        } else {
+            views.setViewVisibility(R.id.widget_countdown, View.GONE);
+        }
+    }
+
+    private static void stopCountdown(RemoteViews views) {
+        views.setViewVisibility(R.id.widget_countdown, View.GONE);
+        views.setChronometer(R.id.widget_countdown, SystemClock.elapsedRealtime(), "%s", false);
+    }
+
+    /** "다음 · 유튜브편집 18:00 (2시간 뒤)" — 다음 일정이 없으면 안내 문구. */
     private static String nextText(ScheduleStore.Block next, int now) {
         if (next == null) return "등록된 일정이 없습니다";
         return "다음 · " + next.label + " " + ScheduleStore.toHHMM(next.startAbs)

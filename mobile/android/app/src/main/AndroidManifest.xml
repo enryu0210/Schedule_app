@@ -88,7 +88,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 재부팅 후 알림을 되살리기 위해 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- 일정이 시작/종료되는 '그 순간'에 알림을 갈아끼우기 위해.
+    <!-- 일정이 시작/종료되는 '그 순간'에 알림·위젯을 갈아끼우기 위해.
          사용자가 이 권한을 거두면 코드가 부정확한 알람으로 물러선다(조금 늦게 갱신) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!--
+      SCHEDULE_EXACT_ALARM 은 안드로이드 14+ 에서 **기본 거부**라, 실제로는 부정확 알람으로 물러서고
+      있었다(실측: 15분마다 울려야 할 알람이 18~23분씩 밀렸다). 그러면 일정이 바뀌어도 알림·위젯의
+      '제목'이 한참 뒤에야 바뀐다.
+      USE_EXACT_ALARM 은 시계/캘린더처럼 **시각이 기능의 본질인 앱**에 주어지는 권한으로,
+      사용자에게 묻지 않고 자동 승인된다. 이 앱은 "지금 몇 시에 무엇을 하는가"가 존재 이유다.
+      (※ Play 스토어에 올릴 때는 이 권한의 정당성을 심사받아야 한다 — 지금은 APK 직접 배포)
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>
