@@ -2,14 +2,16 @@
   "name": "schedule-app-mobile",
   "version": "0.1.0",
   "private": true,
-  "description": "일정공방 안드로이드 앱 (Capacitor 셸 — 화면은 web/ 빌드 결과를 그대로 담는다)",
+  "description": "일정공방 모바일 앱 (Capacitor 셸 — 화면은 web/ 빌드 결과를 그대로 담는다. android/ 완료, ios/ 는 Mac 에서 추가 예정)",
   "scripts": {
     "build:web": "npm --prefix ../web run build",
     "sync": "npm run build:web && cap sync android",
     "icons": "node scripts/make-icons.mjs && capacitor-assets generate --android",
     "open": "cap open android",
     "apk": "cd android && gradlew.bat assembleDebug",
-    "install:phone": "cd android && gradlew.bat installDebug"
+    "install:phone": "cd android && gradlew.bat installDebug",
+    "sync:ios": "npm run build:web && cap sync ios",
+    "open:ios": "cap open ios"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
@@ -21,6 +23,7 @@
     "@capacitor/android": "^7.6.7",
     "@capacitor/app": "^7.1.2",
     "@capacitor/browser": "^7.0.5",
-    "@capacitor/core": "^7.6.7"
+    "@capacitor/core": "^7.6.7",
+    "@capacitor/ios": "^7.6.7"
   }
 }
