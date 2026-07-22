@@ -5,11 +5,30 @@
  * 이렇게 나눠두면 로그인 게이트 없이도 이 컴포넌트만 따로 띄워 눈으로 확인할 수 있다.
  */
 import { formatRange, isNowInBlock, toMinutes } from "../lib/time";
+import {
+  IDLE_KEY,
+  useScheduleAttention,
+  type AttentionReason,
+} from "../hooks/useScheduleAttention";
 import type { ScheduleBlock } from "../types";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 // 다음 일정을 몇 개까지 보여줄지. 창이 작으므로 2개가 한계다.
 const UPCOMING_COUNT = 2;
+
+// 환기 배너에 띄울 한 줄 문구. 창이 작으므로 최대한 짧게.
+function attentionMessage(
+  reason: AttentionReason,
+  current: ScheduleBlock | null,
+  hour: number
+): string {
+  if (reason === "block") {
+    // 새 일정이 시작됐거나(있음), 하던 일정이 끝났거나(없음).
+    return current ? `🔔 지금부터 · ${current.label}` : "☕ 일정이 끝났어요";
+  }
+  // 'hour' — 정시 환기. 이 경우는 진행 중인 일정이 있을 때만 온다.
+  return `🕐 ${hour}시 · ${current?.label ?? ""} 중`;
+}
 
 interface Props {
   todayIdx: number;          // 0=월 ... 6=일
@@ -52,12 +71,33 @@ export function WidgetBody({
     .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
     .slice(0, UPCOMING_COUNT);
 
-  const clock = `${String(Math.floor(nowMin / 60)).padStart(2, "0")}:${String(
+  const hour = Math.floor(nowMin / 60);
+  const clock = `${String(hour).padStart(2, "0")}:${String(
     nowMin % 60
   ).padStart(2, "0")}`;
 
+  // 일정이 바뀌거나(현재 블록 id 변화) 정시가 지나면(hour 변화) 잠깐 환기 배너를 띄운다.
+  const { attention, dismiss } = useScheduleAttention(
+    current?.id ?? IDLE_KEY,
+    hour
+  );
+
   return (
     <div className="widget">
+      {/* 환기 배너 — 위젯 맨 위에 잠깐 떠서 시선을 끈다. 누르면 바로 닫힌다.
+          key 에 nonce 를 주면 다시 뜰 때마다 슬라이드-인 애니메이션이 처음부터 재생된다. */}
+      {attention && (
+        <button
+          type="button"
+          className="widget-attn"
+          key={attention.nonce}
+          onClick={dismiss}
+          title="눌러서 닫기"
+        >
+          {attentionMessage(attention.reason, current, hour)}
+        </button>
+      )}
+
       {/* 상단: 요일 + 현재 시각. Tauri 에서는 이 영역을 잡고 창을 옮긴다. */}
       <header className="widget-head" data-tauri-drag-region>
         <span className="widget-day">{WEEKDAYS[todayIdx]}요일</span>
@@ -82,14 +122,22 @@ export function WidgetBody({
       </header>
 
       {current ? (
-        <div className={`widget-now ${current.color}`}>
+        <div
+          className={`widget-now ${current.color}${
+            attention ? " widget-now--pulse" : ""
+          }`}
+        >
           <span className="widget-now-time">
             {formatRange(current.start, current.end)}
           </span>
           <strong className="widget-now-label">{current.label}</strong>
         </div>
       ) : (
-        <div className="widget-now widget-now-idle">
+        <div
+          className={`widget-now widget-now-idle${
+            attention ? " widget-now--pulse" : ""
+          }`}
+        >
           <strong className="widget-now-label">지금은 일정이 없어요</strong>
         </div>
       )}

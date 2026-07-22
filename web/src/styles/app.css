@@ -530,6 +530,53 @@
   /* 위젯 창(또는 미리보기 컨테이너) 크기에 맞춰 꽉 채운다. */
   height: 100%;
   overflow: hidden;
+  /* 환기 배너(.widget-attn)를 맨 위에 겹쳐 놓기 위한 기준점.
+     overflow:hidden 과 함께라 배너가 위 모서리 밖에서 미끄러져 들어온다. */
+  position: relative;
+}
+
+/* ── 환기 배너 — 일정이 바뀌거나 정시가 지날 때 위젯 맨 위에 잠깐 뜬다 ──
+   레이아웃을 밀지 않으려고 absolute 로 헤더 위에 겹친다(내용이 덜컹이지 않게). */
+.widget-attn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  border: 0;
+  /* 위젯 위쪽 둥근 모서리와 곡률을 맞춘다. */
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 12px;
+  /* 라벨이 길어도 위젯 폭을 넘지 않게 한 줄로 자른다. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(42, 35, 29, 0.18);
+  animation: widget-attn-in 260ms ease-out;
+}
+
+@keyframes widget-attn-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+/* 현재 일정 카드가 잠깐 반짝여(테라코타 링) 시선을 끈다. 두 번만 뛰고 멈춘다. */
+.widget-now--pulse { animation: widget-now-pulse 1.1s ease-in-out 2; }
+
+@keyframes widget-now-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 95, 56, 0); }
+  50%      { box-shadow: 0 0 0 3px rgba(194, 95, 56, 0.45); }
+}
+
+/* 접근성: 모션을 줄이려는 사용자에겐 움직임 없이 배너만 조용히 보여준다. */
+@media (prefers-reduced-motion: reduce) {
+  .widget-attn { animation: none; }
+  .widget-now--pulse { animation: none; }
 }
 
 .widget-center {
