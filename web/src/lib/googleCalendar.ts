@@ -31,21 +31,17 @@ export async function connectGoogleCalendar(): Promise<void> {
     throw new Error("구글 캘린더 연동이 설정되지 않았습니다. (환경변수 필요)");
   }
 
+  // 내 로그인 토큰(access_token)을 state 로 실어 보낸다.
+  //   콜백(서버)이 이 토큰을 검증해 '누구의 연결인지'를 안다 → 별도 DB 기록이 필요 없다.
+  //   토큰 자체가 신원 증명이자 위조 방지(CSRF) 역할을 한다(남이 위조 못 함).
+  //   ※ 이건 짧게 사는(약 1시간) Supabase 세션 토큰이다. 구글 refresh 토큰은
+  //     여전히 서버(Edge Function)에만 저장되고 클라이언트로는 내려오지 않는다.
   const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user.id;
-  if (!userId) throw new Error("로그인이 필요합니다.");
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("로그인이 필요합니다.");
 
-  // 1) 이 연결이 '나'의 것임을 서버가 알 수 있도록 state 를 한 줄 남긴다.
-  //    state 는 랜덤 UUID(DB 가 생성) → CSRF 안전 + JWT 를 URL 에 노출하지 않는다.
-  const { data, error } = await supabase
-    .from("google_oauth_states")
-    .insert({ user_id: userId })
-    .select("state")
-    .single();
-  if (error || !data) throw error ?? new Error("연결 준비에 실패했습니다.");
-
-  // 2) 구글 동의화면으로 이동.
-  //    access_type=offline + prompt=consent 여야 백그라운드 동기화용 refresh_token 을 준다.
+  // 구글 동의화면으로 이동.
+  //   access_type=offline + prompt=consent 여야 백그라운드 동기화용 refresh_token 을 준다.
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: `${SUPABASE_URL}/functions/v1/google-calendar-callback`,
@@ -54,7 +50,7 @@ export async function connectGoogleCalendar(): Promise<void> {
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
-    state: data.state as string,
+    state: accessToken,
   });
   window.location.href = `${GOOGLE_AUTH_URL}?${params.toString()}`;
 }

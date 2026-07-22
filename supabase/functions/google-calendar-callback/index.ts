@@ -24,9 +24,6 @@ function redirectUri(): string {
   return `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-calendar-callback`;
 }
 
-// state 가 너무 오래됐으면(연결을 시작만 하고 방치) 거절한다.
-const STATE_MAX_AGE_MS = 10 * 60 * 1000;
-
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -51,19 +48,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 1) state 검증 → 어떤 사용자의 연결인지 알아낸다. (그리고 재사용 못 하게 즉시 삭제)
-    const { data: stateRow } = await admin
-      .from("google_oauth_states")
-      .select("user_id, created_at")
-      .eq("state", state)
-      .maybeSingle();
-    // 일회성: 있든 없든 지워서 재사용/누적을 막는다.
-    await admin.from("google_oauth_states").delete().eq("state", state);
-    if (!stateRow) return back("error", "invalid_state");
-    if (Date.now() - new Date(stateRow.created_at).getTime() > STATE_MAX_AGE_MS) {
-      return back("error", "state_expired");
+    // 1) state = Supabase 로그인 토큰(access_token). 이걸 검증해 '누구의 연결인지' 알아낸다.
+    //    DB 에 state 를 따로 기록하지 않는다 — 토큰 자체가 신원+위조방지 역할을 한다.
+    //    (토큰이 만료됐거나 위조면 getUser 가 실패한다)
+    const { data: userData, error: userErr } = await admin.auth.getUser(state);
+    if (userErr || !userData?.user) {
+      console.error("state 토큰 검증 실패", userErr);
+      return back("error", "invalid_state");
     }
-    const userId = stateRow.user_id as string;
+    const userId = userData.user.id;
 
     // 2) code → 토큰 교환 (client_secret 은 서버 환경변수에서만 읽는다)
     const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
