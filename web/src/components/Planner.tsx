@@ -26,6 +26,10 @@ import { NameDialog } from "./NameDialog";
 import { AuthBar } from "./AuthBar";
 import { DownloadWidget } from "./DownloadWidget";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import {
+  connectGoogleCalendar,
+  isGoogleCalendarConfigured,
+} from "../lib/googleCalendar";
 
 interface Props {
   // 상단바의 작업 공간 전환에서 "조직 만들기 / 참여하기"를 골랐을 때.
@@ -276,6 +280,16 @@ export function Planner({ onAddOrg }: Props) {
     return true;
   }
 
+  // 구글 캘린더 연결 시작. (성공/실패는 구글·서버를 거쳐 돌아온 뒤 App 이 알림으로 처리한다)
+  async function handleConnectGoogle() {
+    try {
+      await connectGoogleCalendar();
+    } catch (e) {
+      console.error("[Calendar] 구글 연결 시작 실패", e);
+      alert(e instanceof Error ? e.message : "구글 캘린더 연결을 시작하지 못했습니다.");
+    }
+  }
+
   // 빠른 추가: 시작 시각 + 이름만 받아 종료(=시작+1시간)/색상 기본값으로 블록을 만든다.
   function handleQuickAdd(start: string, label: string) {
     const block: ScheduleBlock = {
@@ -315,6 +329,17 @@ export function Planner({ onAddOrg }: Props) {
           </button>
           <WorkspaceSwitcher onAddOrg={onAddOrg} />
           <DownloadWidget />
+          {/* 구글 캘린더 연결 — 환경변수(VITE_GOOGLE_CLIENT_ID)가 있을 때만 노출.
+              연결하면 등록한 일정이 서버에서 자동 동기화된다(달 뷰는 Phase 3). */}
+          {isGoogleCalendarConfigured() && (
+            <button
+              className="google-connect-btn"
+              onClick={handleConnectGoogle}
+              title="구글 캘린더를 연결해 일정을 가져옵니다"
+            >
+              📅 캘린더 연결
+            </button>
+          )}
           <AuthBar />
         </div>
 

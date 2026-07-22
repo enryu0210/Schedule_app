@@ -19,6 +19,7 @@ import { OrgWorkspace } from "./components/OrgWorkspace";
 import { Planner } from "./components/Planner";
 import { WidgetView } from "./components/WidgetView";
 import { sampleCalendarSchedule } from "./data/sampleCalendar";
+import { readGoogleConnectResult } from "./lib/googleCalendar";
 import { clearInviteCodeFromUrl, readInviteCodeFromUrl } from "./lib/inviteLink";
 import { isWidgetMode } from "./lib/widgetMode";
 
@@ -97,6 +98,21 @@ function Workspace() {
     setInviteCode(code);
     setShowOrgDialog(true);
     clearInviteCodeFromUrl();
+  }, []);
+
+  // 구글 캘린더 연결 후 돌아왔다면(?google=connected|error) 결과를 알려주고 주소를 청소한다.
+  // (연결은 구글·서버를 거쳐 여기로 돌아온다 — lib/googleCalendar.ts)
+  useEffect(() => {
+    const res = readGoogleConnectResult();
+    if (!res) return;
+    if (res.result === "connected") {
+      alert("구글 캘린더가 연결되었습니다.\n잠시 후 일정이 자동으로 동기화됩니다.");
+    } else {
+      alert(
+        "구글 캘린더 연결에 실패했습니다." +
+          (res.reason ? `\n(사유: ${res.reason})` : "")
+      );
+    }
   }, []);
 
   function closeOrgDialog() {

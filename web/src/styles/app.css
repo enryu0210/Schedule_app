@@ -1214,6 +1214,19 @@
   margin: 4px 0 0;
 }
 
+/* 상단바의 "구글 캘린더 연결" 버튼 (Planner auth-row) */
+.google-connect-btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.google-connect-btn:hover { background: var(--accent-bg); color: var(--accent); }
+
 /* 좁은 화면(폰)에서는 칸이 작아 시각을 숨기고 제목만 남긴다 */
 @media (max-width: 420px) {
   .month-cell { min-height: 54px; }
