@@ -13,15 +13,36 @@ import { NoticeProvider } from "./hooks/useScheduleNotice";
 import { OrgProvider, useOrg } from "./hooks/useOrg";
 import { PresetProvider } from "./hooks/usePresetStore";
 import { LoginScreen } from "./components/LoginScreen";
+import { MonthView } from "./components/MonthView";
 import { OrgDialog } from "./components/OrgDialog";
 import { OrgWorkspace } from "./components/OrgWorkspace";
 import { Planner } from "./components/Planner";
 import { WidgetView } from "./components/WidgetView";
+import { sampleCalendarSchedule } from "./data/sampleCalendar";
 import { clearInviteCodeFromUrl, readInviteCodeFromUrl } from "./lib/inviteLink";
 import { isWidgetMode } from "./lib/widgetMode";
 
 export default function App() {
   const { user, loading } = useAuth();
+
+  // 개발 전용 미리보기: `npm run dev` 에서 ?preview=month 로 달 뷰를 목 데이터로 확인한다.
+  // (로그인 게이트 때문에 실제 화면은 인증 없이 못 보므로, 새 화면은 이렇게 눈으로 검증한다)
+  // import.meta.env.DEV 로 감싸 프로덕션 번들에는 들어가지 않게 한다.
+  if (
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get("preview") === "month"
+  ) {
+    return (
+      <div className="wrap">
+        <MonthView
+          schedule={sampleCalendarSchedule()}
+          connected
+          onConnectGoogle={() => {}}
+          onSyncNow={() => {}}
+        />
+      </div>
+    );
+  }
 
   // 위젯 모드는 로딩/로그인 화면까지 자체적으로 처리하므로 가장 먼저 분기한다.
   // (위젯은 개인 일정만 보여준다 — 조직 기능은 위젯에 넣지 않는다)
