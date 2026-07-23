@@ -3,8 +3,9 @@
  *
  * 두 순간에만 사용자의 주의를 끈다:
  *   1) 진행 중인 일정이 바뀔 때 (블록이 시작되거나 끝날 때)
- *   2) 정시(매시 00분)가 지날 때 — 단, 지금 진행 중인 일정이 있을 때만.
- *      (일정이 없는 새벽에 매시간 배너가 뜨면 그냥 성가시기만 하다)
+ *   2) 정시(매시 00분)가 지날 때 — 진행 중인 일정이 없어도 뜬다.
+ *      (처음엔 '일정이 있을 때만' 이었다. 빈 시간에 배너가 성가실까 봐 막아뒀는데,
+ *       오히려 일정이 비어 있을 때가 시간 가는 줄 모르는 때라 매시 알리는 쪽으로 바꿨다)
  *
  * 왜 훅으로 빼는가:
  *   화면을 그리는 WidgetBody 는 "지금 무엇을 보여줄까"에만 집중하게 두고,
@@ -68,13 +69,12 @@ export function useScheduleAttention(
 
     const keyChanged = currentKey !== prevKey.current;
     const hourChanged = hour !== prevHour.current;
-    const hasBlock = currentKey !== IDLE_KEY;
 
     // 무엇을 띄울지 결정. 일정 변화가 더 구체적이므로 우선한다.
     // (블록이 정각에 시작하면 키와 시(hour)가 동시에 바뀌는데, 이때는 'block' 하나만 띄운다)
     let reason: AttentionReason | null = null;
     if (keyChanged) reason = "block";
-    else if (hourChanged && hasBlock) reason = "hour";
+    else if (hourChanged) reason = "hour";
 
     if (reason) {
       nonce.current += 1;

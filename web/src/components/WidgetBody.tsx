@@ -31,8 +31,9 @@ function attentionMessage(
     // 새 일정이 시작됐거나(있음), 하던 일정이 끝났거나(없음).
     return current ? `🔔 지금부터 · ${current.label}` : "☕ 일정이 끝났어요";
   }
-  // 'hour' — 정시 환기. 이 경우는 진행 중인 일정이 있을 때만 온다.
-  return `🕐 ${hour}시 · ${current?.label ?? ""} 중`;
+  // 'hour' — 정시 환기. 일정이 비어 있을 때도 오므로 current 가 null 일 수 있다.
+  // 그대로 "· 중" 을 붙이면 "🕐 3시 ·  중" 처럼 빈 자리가 남는다 → 그땐 시각만 알린다.
+  return current ? `🕐 ${hour}시 · ${current.label} 중` : `🕐 ${hour}시`;
 }
 
 interface Props {
