@@ -1,21 +1,23 @@
 /*
  * 구글 캘린더 동기화 (Supabase Edge Function, Deno).
  *
- * 하는 일: 로그인한 '나' 한 사람의 구글 캘린더 일정을 가져와 calendar_schedules 에 저장한다.
- *   1) 요청의 Authorization 토큰으로 '누가 부르는지' 확인
- *   2) 그 사람의 refresh_token(서버 전용 테이블)으로 access_token 재발급
- *   3) Calendar API 로 이번 달~+2개월 이벤트를 긁어와 '달 구조'로 변환
- *   4) calendar_schedules 에 upsert (Realtime 으로 클라이언트가 즉시 따라간다)
+ * 입구가 둘이다(로직은 하나 — syncOneUser):
+ *   A) 브라우저: Authorization(내 로그인 토큰) → '나 한 사람'만 동기화.  (캘린더 탭에서 호출)
+ *   B) cron:    x-cron-secret 헤더가 맞으면 → '전체 사용자' 동기화.    (pg_cron + pg_net 이 호출)
+ *
+ * 하는 일(한 사람 기준):
+ *   1) refresh_token(서버 전용 테이블)으로 access_token 재발급
+ *   2) Calendar API 로 이번 달~+2개월 이벤트를 긁어와 '달 구조'로 변환
+ *   3) calendar_schedules 에 upsert (Realtime 으로 클라이언트가 즉시 따라간다)
  *
  * 왜 서버에서 하나: 구글 refresh_token / client_secret 은 브라우저로 절대 내보내면 안 된다.
  *   그래서 토큰을 만지는 일은 전부 이 함수(service_role) 안에서 끝낸다. (docs/구글-캘린더-연동.md)
  *
- * ⚠️ 배포는 --no-verify-jwt 로 한다.
- *   이유는 콜백과 다르다: 브라우저가 이 함수를 fetch 하면 먼저 CORS 사전요청(OPTIONS)을 보내는데,
- *   그 요청엔 JWT 가 없다. 게이트웨이 JWT 검증(기본값)을 켜두면 OPTIONS 가 401 로 막혀 본요청이
- *   시작조차 못 한다. 그래서 검증을 끄고 '누구인지'는 아래에서 우리가 직접 토큰으로 확인한다.
+ * ⚠️ 배포는 --no-verify-jwt 로 한다(대시보드 배포면 Verify JWT 를 수동 OFF).
+ *   브라우저의 CORS 사전요청(OPTIONS)엔 JWT 가 없어 게이트웨이 검증을 켜두면 막힌다.
+ *   cron 호출도 유저 JWT 가 없다 → '누구인지'는 함수 안에서 토큰/시크릿으로 직접 가린다.
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CALENDAR_EVENTS_URL =
@@ -41,7 +43,7 @@ const timeFmt = new Intl.DateTimeFormat("en-GB", {
 // 브라우저에서 직접 부르므로 CORS 를 열어준다. 인증은 쿠키가 아니라 Bearer 토큰이라 origin '*' 이 안전하다.
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -83,6 +85,9 @@ interface CalendarEvent {
   allDay: boolean;
 }
 
+// syncOneUser 의 결과. 실패해도 배치(cron)는 다음 사람으로 넘어가야 하므로 예외 대신 값으로 돌려준다.
+type SyncResult = { ok: true; count: number } | { ok: false; error: string };
+
 // 구글 이벤트 하나 → 우리 CalendarEvent. 취소/시작없음이면 null(건너뜀).
 function toEvent(item: {
   id?: string;
@@ -114,6 +119,139 @@ function toEvent(item: {
   };
 }
 
+/**
+ * 한 사람의 구글 캘린더를 가져와 calendar_schedules 에 저장한다.
+ * 실패해도 예외를 던지지 않는다(전체 동기화가 한 사람 때문에 멈추면 안 되므로) — 결과를 값으로 돌려준다.
+ */
+async function syncOneUser(admin: SupabaseClient, userId: string): Promise<SyncResult> {
+  // 1) 이 사람의 refresh_token 을 꺼낸다(서버 전용 테이블). 없으면 아직 연결 안 한 사람.
+  const { data: tokenRow, error: tokenErr } = await admin
+    .from("google_calendar_tokens")
+    .select("refresh_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (tokenErr) {
+    console.error("토큰 조회 실패", userId, tokenErr);
+    return { ok: false, error: "token_read_failed" };
+  }
+  if (!tokenRow?.refresh_token) return { ok: false, error: "not_connected" };
+
+  // 2) refresh_token → access_token (client_secret 은 서버 환경변수에서만)
+  const refreshRes = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
+      client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
+      refresh_token: tokenRow.refresh_token,
+      grant_type: "refresh_token",
+    }),
+  });
+  const refreshed = await refreshRes.json();
+  if (!refreshRes.ok || !refreshed.access_token) {
+    console.error("access_token 재발급 실패", userId, refreshRes.status, refreshed?.error);
+    // invalid_grant = 사용자가 접근을 철회했거나 토큰이 죽음 → 연결을 지워 UI 가 '미연결'로 돌아가게.
+    if (refreshed?.error === "invalid_grant") {
+      await admin.from("google_calendar_tokens").delete().eq("user_id", userId);
+      await admin.from("calendar_schedules").delete().eq("user_id", userId);
+      return { ok: false, error: "revoked" };
+    }
+    return { ok: false, error: "refresh_failed" };
+  }
+  const accessToken = refreshed.access_token as string;
+
+  // 3) 가져올 구간: 이번 달 1일 ~ +2개월 말 (달을 넘겨봐도 데이터가 있게).
+  const now = new Date();
+  const [cy, cm] = ymd(now).split("-").map(Number); // 한국시간 기준 올해/이번달
+  const endExclusive = addMonths(cy, cm, 3); // +3개월 1일(미포함) = 창의 끝
+  const rangeStart = `${cy}-${pad2(cm)}-01`;
+  const lastMonth = addMonths(cy, cm, 2);
+  // 창 마지막 달의 말일 (Date.UTC(y, month, 0) = 그 달 마지막 날. month 는 1-12 그대로 넣으면 다음달-0일)
+  const lastDay = new Date(Date.UTC(lastMonth.y, lastMonth.m, 0)).getUTCDate();
+  const rangeEnd = `${lastMonth.y}-${pad2(lastMonth.m)}-${pad2(lastDay)}`;
+  const timeMin = `${rangeStart}T00:00:00+09:00`;
+  const timeMax = `${endExclusive.y}-${pad2(endExclusive.m)}-01T00:00:00+09:00`;
+
+  // 4) events.list — 반복 일정은 singleEvents 로 펼쳐서 개별 날짜에 배치. 페이지가 여러 개면 이어받는다.
+  const events: CalendarEvent[] = [];
+  let pageToken: string | undefined;
+  let page = 0;
+  do {
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "2500",
+      timeZone: TZ,
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const evRes = await fetch(`${CALENDAR_EVENTS_URL}?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!evRes.ok) {
+      const body = await evRes.text();
+      console.error("events.list 실패", userId, evRes.status, body.slice(0, 200));
+      return { ok: false, error: "events_fetch_failed" };
+    }
+    const evJson = await evRes.json();
+    for (const item of evJson.items ?? []) {
+      const ev = toEvent(item);
+      if (ev) events.push(ev);
+    }
+    pageToken = evJson.nextPageToken;
+    page++;
+  } while (pageToken && page < 10); // 안전장치: 최대 10페이지
+
+  // 날짜→시각 순으로 정렬(클라이언트는 '날짜순 정렬' 을 가정한다).
+  events.sort((a, b) =>
+    a.date === b.date ? a.start.localeCompare(b.start) : a.date.localeCompare(b.date),
+  );
+
+  // 5) 저장 (service_role 이라 RLS 우회). Realtime 이 이 갱신을 클라이언트로 밀어준다.
+  const schedule = { events, rangeStart, rangeEnd, syncedAt: Date.now() };
+  const { error: saveErr } = await admin.from("calendar_schedules").upsert(
+    { user_id: userId, schedule, synced_at: new Date().toISOString() },
+    { onConflict: "user_id" },
+  );
+  if (saveErr) {
+    console.error("calendar_schedules 저장 실패", userId, saveErr);
+    return { ok: false, error: "store_failed" };
+  }
+
+  return { ok: true, count: events.length };
+}
+
+/**
+ * 전체 사용자 동기화 (cron 경로). 토큰이 있는 사람만 순회한다.
+ * 한 사람이 실패해도 멈추지 않고 다음 사람으로 넘어간다(배치의 기본 원칙).
+ * 규모가 커지면 함수 실행시간 한도에 걸릴 수 있다 → 그때는 배치 분할/큐가 필요(현재는 소규모라 순차로 충분).
+ */
+async function syncAllUsers(admin: SupabaseClient): Promise<Response> {
+  const { data: rows, error } = await admin
+    .from("google_calendar_tokens")
+    .select("user_id");
+  if (error) {
+    console.error("[cron] 토큰 목록 조회 실패", error);
+    return json({ ok: false, error: "list_failed" });
+  }
+
+  const users = rows ?? [];
+  let synced = 0;
+  let failed = 0;
+  for (const row of users) {
+    const result = await syncOneUser(admin, row.user_id as string);
+    if (result.ok) synced++;
+    else {
+      failed++;
+      console.error(`[cron] 동기화 실패 user=${row.user_id} 사유=${result.error}`);
+    }
+  }
+  console.log(`[cron] 전체 동기화 완료: total=${users.length} synced=${synced} failed=${failed}`);
+  return json({ ok: true, total: users.length, synced, failed });
+}
+
 Deno.serve(async (req: Request) => {
   // CORS 사전요청(OPTIONS)은 본문 없이 통과시킨다.
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -124,114 +262,23 @@ Deno.serve(async (req: Request) => {
   );
 
   try {
-    // 1) 누가 부르는지 확인 — 요청의 Bearer 토큰(내 로그인 access_token)을 검증한다.
+    // 입구 A) cron: x-cron-secret 이 서버 시크릿과 일치하면 전체 사용자 동기화.
+    //   (pg_cron + pg_net 이 이 헤더를 실어 부른다. 아무나 전체 동기화를 못 돌리게 막는 최소 방어.)
+    const cronSecret = req.headers.get("x-cron-secret");
+    const expected = Deno.env.get("CRON_SECRET");
+    if (cronSecret && expected && cronSecret === expected) {
+      return await syncAllUsers(admin);
+    }
+
+    // 입구 B) 브라우저: Authorization 토큰(내 로그인 access_token)으로 '나'를 확인 → 나만 동기화.
     const authHeader = req.headers.get("Authorization") ?? "";
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
     const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
     if (userErr || !userData?.user) {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
-    const userId = userData.user.id;
 
-    // 2) 이 사람의 refresh_token 을 꺼낸다(서버 전용 테이블). 없으면 아직 연결 안 한 사람.
-    const { data: tokenRow, error: tokenErr } = await admin
-      .from("google_calendar_tokens")
-      .select("refresh_token")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (tokenErr) {
-      console.error("토큰 조회 실패", tokenErr);
-      return json({ ok: false, error: "token_read_failed" });
-    }
-    if (!tokenRow?.refresh_token) {
-      return json({ ok: false, error: "not_connected" });
-    }
-
-    // 3) refresh_token → access_token (client_secret 은 서버 환경변수에서만)
-    const refreshRes = await fetch(GOOGLE_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
-        client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
-        refresh_token: tokenRow.refresh_token,
-        grant_type: "refresh_token",
-      }),
-    });
-    const refreshed = await refreshRes.json();
-    if (!refreshRes.ok || !refreshed.access_token) {
-      console.error("access_token 재발급 실패", refreshRes.status, refreshed?.error);
-      // invalid_grant = 사용자가 접근을 철회했거나 토큰이 죽음 → 연결을 지워 UI 가 '미연결'로 돌아가게.
-      if (refreshed?.error === "invalid_grant") {
-        await admin.from("google_calendar_tokens").delete().eq("user_id", userId);
-        await admin.from("calendar_schedules").delete().eq("user_id", userId);
-        return json({ ok: false, error: "revoked" });
-      }
-      return json({ ok: false, error: "refresh_failed" });
-    }
-    const accessToken = refreshed.access_token as string;
-
-    // 4) 가져올 구간: 이번 달 1일 ~ +2개월 말 (달을 넘겨봐도 데이터가 있게).
-    const now = new Date();
-    const [cy, cm] = ymd(now).split("-").map(Number); // 한국시간 기준 올해/이번달
-    const endExclusive = addMonths(cy, cm, 3); // +3개월 1일(미포함) = 창의 끝
-    const rangeStart = `${cy}-${pad2(cm)}-01`;
-    const lastMonth = addMonths(cy, cm, 2);
-    // 창 마지막 달의 말일 (Date.UTC(y, month, 0) = 그 달 마지막 날. month 는 1-12 그대로 넣으면 다음달-0일)
-    const lastDay = new Date(Date.UTC(lastMonth.y, lastMonth.m, 0)).getUTCDate();
-    const rangeEnd = `${lastMonth.y}-${pad2(lastMonth.m)}-${pad2(lastDay)}`;
-    const timeMin = `${rangeStart}T00:00:00+09:00`;
-    const timeMax = `${endExclusive.y}-${pad2(endExclusive.m)}-01T00:00:00+09:00`;
-
-    // 5) events.list — 반복 일정은 singleEvents 로 펼쳐서 개별 날짜에 배치. 페이지가 여러 개면 이어받는다.
-    const events: CalendarEvent[] = [];
-    let pageToken: string | undefined;
-    let page = 0;
-    do {
-      const params = new URLSearchParams({
-        timeMin,
-        timeMax,
-        singleEvents: "true",
-        orderBy: "startTime",
-        maxResults: "2500",
-        timeZone: TZ,
-      });
-      if (pageToken) params.set("pageToken", pageToken);
-
-      const evRes = await fetch(`${CALENDAR_EVENTS_URL}?${params}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!evRes.ok) {
-        const body = await evRes.text();
-        console.error("events.list 실패", evRes.status, body.slice(0, 200));
-        return json({ ok: false, error: "events_fetch_failed" });
-      }
-      const evJson = await evRes.json();
-      for (const item of evJson.items ?? []) {
-        const ev = toEvent(item);
-        if (ev) events.push(ev);
-      }
-      pageToken = evJson.nextPageToken;
-      page++;
-    } while (pageToken && page < 10); // 안전장치: 최대 10페이지
-
-    // 날짜→시각 순으로 정렬(클라이언트는 '날짜순 정렬' 을 가정한다).
-    events.sort((a, b) =>
-      a.date === b.date ? a.start.localeCompare(b.start) : a.date.localeCompare(b.date),
-    );
-
-    // 6) 저장 (service_role 이라 RLS 우회). Realtime 이 이 갱신을 클라이언트로 밀어준다.
-    const schedule = { events, rangeStart, rangeEnd, syncedAt: Date.now() };
-    const { error: saveErr } = await admin.from("calendar_schedules").upsert(
-      { user_id: userId, schedule, synced_at: new Date().toISOString() },
-      { onConflict: "user_id" },
-    );
-    if (saveErr) {
-      console.error("calendar_schedules 저장 실패", saveErr);
-      return json({ ok: false, error: "store_failed" });
-    }
-
-    return json({ ok: true, count: events.length });
+    return json(await syncOneUser(admin, userData.user.id));
   } catch (e) {
     console.error("동기화 중 예외", e);
     return json({ ok: false, error: "exception" });
