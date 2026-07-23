@@ -14,6 +14,7 @@ import {
   groupEventsByDate,
   shiftMonth,
 } from "../lib/monthGrid";
+import { DayEventsPopup } from "./DayEventsPopup";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 // 한 칸(하루)에 몇 개까지 이벤트를 보여줄지. 넘치면 "+N" 으로 접는다.
@@ -51,6 +52,8 @@ export function MonthView({
   onSyncNow,
 }: Props) {
   const [month, setMonth] = useState<string>(() => currentMonth());
+  // 하루를 눌러 그날 일정을 펼쳐 보는 팝업. null 이면 닫힘.
+  const [openDate, setOpenDate] = useState<string | null>(null);
 
   const weeks = buildMonthGrid(month);
   const byDate = groupEventsByDate(schedule?.events ?? []);
@@ -138,8 +141,20 @@ export function MonthView({
               const shown = events.slice(0, MAX_CHIPS);
               const hidden = events.length - shown.length;
               return (
+                // 하루를 누르면 그날 일정 팝업을 연다(칸에 접힌 "+N" 까지 전부 보기 위함).
+                // div 지만 버튼처럼 동작하도록 role/tabIndex/키보드(Enter·Space)를 함께 준다.
                 <div
                   key={cell.date}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${cell.date} 일정 보기`}
+                  onClick={() => setOpenDate(cell.date)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOpenDate(cell.date);
+                    }
+                  }}
                   className={
                     "month-cell" +
                     (cell.inMonth ? "" : " month-cell--muted") +
@@ -175,6 +190,15 @@ export function MonthView({
         <p className="month-hint">
           구글 캘린더를 연결하면 등록한 일정이 이 달력에 자동으로 채워집니다.
         </p>
+      )}
+
+      {/* 하루를 누르면 그날 일정 전체를 펼쳐 보여주는 팝업 */}
+      {openDate && (
+        <DayEventsPopup
+          date={openDate}
+          events={byDate[openDate] ?? []}
+          onClose={() => setOpenDate(null)}
+        />
       )}
     </section>
   );

@@ -43,6 +43,15 @@ export function formatMonthTitle(month: string): string {
   return `${year}년 ${mon}월`;
 }
 
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+/** "2026-07-12" → "7월 12일 (일)" (날짜 팝업 제목용). 로컬 Date 로 만들어 요일이 밀리지 않게 한다. */
+export function formatDayTitle(date: string): string {
+  const [year, mon, day] = date.split("-").map(Number);
+  const dow = new Date(year, mon - 1, day).getDay(); // 0=일
+  return `${mon}월 ${day}일 (${WEEKDAY_KO[dow]})`;
+}
+
 /**
  * "YYYY-MM" 한 달을 월요일 시작 주(week)들의 격자로 만든다.
  * 첫 주 앞과 마지막 주 뒤는 이웃 달 날짜로 채워 항상 7칸을 맞춘다(달력 모양 유지).
