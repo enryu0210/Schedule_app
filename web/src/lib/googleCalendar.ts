@@ -55,6 +55,30 @@ export async function connectGoogleCalendar(): Promise<void> {
   window.location.href = `${GOOGLE_AUTH_URL}?${params.toString()}`;
 }
 
+/**
+ * "지금 동기화" — 서버(Edge Function)에게 내 구글 캘린더를 다시 긁어오라고 요청한다.
+ *   민감한 일(토큰 사용, 구글 API 호출)은 전부 서버가 한다. 여기선 부르기만 한다.
+ *   성공하면 서버가 calendar_schedules 를 갱신하고, Realtime 이 그 변화를 화면에 밀어준다.
+ *
+ * @returns 가져온 이벤트 수
+ * @throws  동기화 실패 시(미연결·토큰 만료·구글 오류 등) 사유를 담은 Error
+ */
+export async function syncGoogleCalendar(): Promise<{ count: number }> {
+  if (!supabase) throw new Error("Supabase 클라이언트가 설정되지 않았습니다.");
+
+  // functions.invoke 는 현재 세션의 access_token 을 Authorization 으로 자동으로 실어 보낸다.
+  //   → 서버가 그 토큰으로 '누구인지'를 확인한다.
+  const { data, error } = await supabase.functions.invoke("google-calendar-sync", {
+    body: {},
+  });
+  if (error) throw error;               // 네트워크/401 등 (함수에 못 닿음)
+  if (!data?.ok) {
+    // 함수가 처리한 실패는 200 + { ok:false, error } 로 온다. 사유를 그대로 올린다.
+    throw new Error(data?.error ?? "sync_failed");
+  }
+  return { count: data.count ?? 0 };
+}
+
 export type GoogleConnectResult = "connected" | "error";
 
 /**

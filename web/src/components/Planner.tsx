@@ -15,6 +15,8 @@ import { useNow } from "../hooks/useNow";
 import { usePresets } from "../hooks/usePresetStore";
 import { useSharedScheduleSync } from "../hooks/useSharedScheduleSync";
 import { useViewMode } from "../hooks/useViewMode";
+import { useCalendarSchedule } from "../hooks/useCalendarSchedule";
+import { MonthView } from "./MonthView";
 import { PresetSidebar } from "./PresetSidebar";
 import { DayTabs } from "./DayTabs";
 import { ScheduleCard } from "./ScheduleCard";
@@ -53,6 +55,13 @@ export function Planner({ onAddOrg }: Props) {
 
   // 보기 방식: 목록(차트형) / 시간표(그래프형). 기기별로 기억된다.
   const [viewMode, setViewMode] = useViewMode();
+
+  // 구글 캘린더 연동을 쓸 수 있는 빌드인가(환경변수). 없으면 캘린더 탭 자체를 감춘다.
+  const googleConfigured = isGoogleCalendarConfigured();
+  // 최상위 뷰: 주간 계획표 ↔ 캘린더(달). 구글 미설정이면 항상 주간에 머문다.
+  const [mainView, setMainView] = useState<"week" | "calendar">("week");
+  // 캘린더 뷰를 볼 때만 캘린더 데이터를 읽고 동기화한다(안 보는 화면에 불필요한 요청·구독을 걸지 않는다).
+  const calendar = useCalendarSchedule(googleConfigured && mainView === "calendar");
 
   // 시간표(그래프) 뷰의 편집 잠금. 기본은 "보기"다.
   //
@@ -290,6 +299,16 @@ export function Planner({ onAddOrg }: Props) {
     }
   }
 
+  // "지금 새로고침" — 서버에 재동기화를 요청한다. 실패하면 사유를 사람이 읽을 문장으로 알린다.
+  async function handleSyncNow() {
+    try {
+      await calendar.syncNow();
+    } catch (e) {
+      console.error("[Calendar] 동기화 실패", e);
+      alert("캘린더 동기화에 실패했습니다.\n" + friendlyCalendarError(e));
+    }
+  }
+
   // 빠른 추가: 시작 시각 + 이름만 받아 종료(=시작+1시간)/색상 기본값으로 블록을 만든다.
   function handleQuickAdd(start: string, label: string) {
     const block: ScheduleBlock = {
@@ -329,17 +348,8 @@ export function Planner({ onAddOrg }: Props) {
           </button>
           <WorkspaceSwitcher onAddOrg={onAddOrg} />
           <DownloadWidget />
-          {/* 구글 캘린더 연결 — 환경변수(VITE_GOOGLE_CLIENT_ID)가 있을 때만 노출.
-              연결하면 등록한 일정이 서버에서 자동 동기화된다(달 뷰는 Phase 3). */}
-          {isGoogleCalendarConfigured() && (
-            <button
-              className="google-connect-btn"
-              onClick={handleConnectGoogle}
-              title="구글 캘린더를 연결해 일정을 가져옵니다"
-            >
-              📅 캘린더 연결
-            </button>
-          )}
+          {/* 구글 캘린더 연결 진입점은 '📅 캘린더' 탭 안(MonthView)으로 옮겼다.
+              한 화면에 연결 버튼이 여러 개면 헷갈린다 → 진입점을 하나로. */}
           <AuthBar />
         </div>
 
@@ -348,6 +358,40 @@ export function Planner({ onAddOrg }: Props) {
           <div className="clock">{clockText}</div>
         </div>
 
+        {/* 최상위 뷰 전환: 주간 계획표 ↔ 캘린더(달). 구글 연동이 켜진 빌드에서만 보인다. */}
+        {googleConfigured && (
+          <div className="main-tabs" role="group" aria-label="화면 전환">
+            <div className="view-toggle">
+              <button
+                className={"view-toggle-btn" + (mainView === "week" ? " active" : "")}
+                onClick={() => setMainView("week")}
+                aria-pressed={mainView === "week"}
+              >
+                주간 계획표
+              </button>
+              <button
+                className={"view-toggle-btn" + (mainView === "calendar" ? " active" : "")}
+                onClick={() => setMainView("calendar")}
+                aria-pressed={mainView === "calendar"}
+              >
+                📅 캘린더
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mainView === "calendar" ? (
+          // 캘린더(달) 뷰 — 데이터는 useCalendarSchedule 이 서버에서 읽어온다.
+          // 연결 전이면 MonthView 가 '연결' 버튼을, 연결 후엔 '새로고침'을 스스로 보여준다.
+          <MonthView
+            schedule={calendar.schedule}
+            connected={calendar.connected}
+            syncing={calendar.syncing}
+            onConnectGoogle={handleConnectGoogle}
+            onSyncNow={handleSyncNow}
+          />
+        ) : (
+          <>
         <div className="view-row">
           {/* 편집 잠금 버튼은 시간표 뷰에서만 의미가 있다.
               목록 뷰는 드래그가 없어 실수로 바뀔 일이 없기 때문이다. */}
@@ -417,6 +461,8 @@ export function Planner({ onAddOrg }: Props) {
             </div>
           </>
         )}
+          </>
+        )}
       </div>
 
       {viewingBlock && (
@@ -471,4 +517,21 @@ export function Planner({ onAddOrg }: Props) {
 // 블록을 시작 시각 순으로 정렬한다.
 function sortBlocks(blocks: ScheduleBlock[]): ScheduleBlock[] {
   return [...blocks].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+}
+
+// 서버가 준 동기화 실패 코드(Error.message)를 사용자에게 보여줄 한국어 문장으로 바꾼다.
+function friendlyCalendarError(e: unknown): string {
+  const code = e instanceof Error ? e.message : String(e);
+  switch (code) {
+    case "not_connected":
+      return "먼저 구글 캘린더를 연결해주세요.";
+    case "revoked":
+      return "구글에서 접근 권한이 해제되었습니다. 다시 연결해주세요.";
+    case "refresh_failed":
+      return "구글 인증을 갱신하지 못했습니다. 다시 연결해주세요.";
+    case "events_fetch_failed":
+      return "구글에서 일정을 가져오지 못했습니다. 잠시 후 다시 시도해주세요.";
+    default:
+      return "잠시 후 다시 시도해주세요.";
+  }
 }

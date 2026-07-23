@@ -343,6 +343,11 @@
 }
 .view-toggle-btn.active { background: var(--accent); color: #fff; }
 
+/* 최상위 뷰 전환(주간 계획표 ↔ 캘린더). '큰 전환'임을 드러내려 가운데 정렬로 둔다. */
+.main-tabs {
+  display: flex; justify-content: center; margin: 2px 0 16px;
+}
+
 /* 시간표 편집 잠금 버튼. 켜져 있을 때(=일정이 바뀔 수 있을 때)만 눈에 띄게 한다.
    "지금 건드리면 바뀐다"는 사실이 한눈에 보여야 실수를 막을 수 있다. */
 .edit-toggle {
