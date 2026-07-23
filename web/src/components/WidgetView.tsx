@@ -8,6 +8,7 @@ import { useWidgetPresets } from "../hooks/useWidgetPresets";
 import { useAuth } from "../hooks/useAuth";
 import { useNow } from "../hooks/useNow";
 import { jsDayToMondayIndex } from "../lib/time";
+import { buildWidgetBlocks } from "../lib/widgetBlocks";
 import { expandForLogin } from "../lib/widgetWindow";
 import { WidgetBody } from "./WidgetBody";
 
@@ -72,7 +73,9 @@ export function WidgetView() {
 
   const todayIdx = jsDayToMondayIndex(now.getDay());
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const blocks = preset?.days[todayIdx]?.blocks ?? [];
+  // 오늘 블록만 넘기면 23:00~01:00 같은 야간 일정이 자정에 사라진다 →
+  // 어제에서 넘어온 블록까지 포함해 만든다(lib/widgetBlocks).
+  const blocks = buildWidgetBlocks(preset?.days, todayIdx);
 
   return (
     <WidgetBody

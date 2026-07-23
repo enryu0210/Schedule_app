@@ -4,7 +4,12 @@
  * 로그인/데이터 로딩은 WidgetView 가 맡고, 여기서는 받은 블록만 그린다.
  * 이렇게 나눠두면 로그인 게이트 없이도 이 컴포넌트만 따로 띄워 눈으로 확인할 수 있다.
  */
-import { formatRange, isNowInBlock, toMinutes } from "../lib/time";
+import { formatRange } from "../lib/time";
+import {
+  pickCurrentBlock,
+  pickUpcomingBlocks,
+  type WidgetBlock,
+} from "../lib/widgetBlocks";
 import {
   IDLE_KEY,
   useScheduleAttention,
@@ -33,7 +38,9 @@ function attentionMessage(
 interface Props {
   todayIdx: number;          // 0=월 ... 6=일
   nowMin: number;            // 0시 기준 현재 분
-  blocks: ScheduleBlock[];   // 오늘의 블록들
+  // 오늘 화면에 올릴 블록들. 어제에서 자정을 넘겨 넘어온 블록이 섞여 있을 수 있다
+  // (lib/widgetBlocks 의 buildWidgetBlocks 가 만들어준다)
+  blocks: WidgetBlock[];
   // 조직 시간표를 보여주는 중이면 그 조직 이름. 개인 계획표면 null.
   // 지금 보이는 게 내 일정인지 조직 일정인지 헷갈리면 안 된다.
   sourceLabel?: string | null;
@@ -63,24 +70,23 @@ export function WidgetBody({
   offline = false,
   lastSyncedAt = null,
 }: Props) {
-  const current = blocks.find((b) => isNowInBlock(nowMin, b.start, b.end)) ?? null;
-
-  // "다음 일정" = 아직 시작하지 않은 블록. 시작 시각이 빠른 순으로 앞에서 몇 개만.
-  const upcoming = blocks
-    .filter((b) => toMinutes(b.start) > nowMin)
-    .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
-    .slice(0, UPCOMING_COUNT);
+  const current = pickCurrentBlock(blocks, nowMin);
+  const upcoming = pickUpcomingBlocks(blocks, nowMin, UPCOMING_COUNT);
 
   const hour = Math.floor(nowMin / 60);
   const clock = `${String(hour).padStart(2, "0")}:${String(
     nowMin % 60
   ).padStart(2, "0")}`;
 
-  // 일정이 바뀌거나(현재 블록 id 변화) 정시가 지나면(hour 변화) 잠깐 환기 배너를 띄운다.
-  const { attention, dismiss } = useScheduleAttention(
-    current?.id ?? IDLE_KEY,
-    hour
-  );
+  // 일정이 바뀌거나(진행 중인 시간 구간 변화) 정시가 지나면(hour 변화) 잠깐 환기 배너를 띄운다.
+  //
+  // 기준이 블록 id 가 아니라 '시간 구간'인 이유:
+  //   위젯은 Realtime 으로 웹의 변경을 즉시 따라간다. id 를 기준으로 삼으면
+  //   웹에서 프리셋만 바꿔도(=같은 시간대의 다른 블록) id 가 달라져,
+  //   시각은 그대로인데 "🔔 지금부터" 배너가 거짓으로 떴다.
+  //   진짜 알려야 할 순간은 "지금 진행 중인 시간대가 바뀌는 때"다.
+  const currentKey = current ? `${current.start}-${current.end}` : IDLE_KEY;
+  const { attention, dismiss } = useScheduleAttention(currentKey, hour);
 
   return (
     <div className="widget">
